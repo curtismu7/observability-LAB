@@ -1,0 +1,14 @@
+# Optional add-on for the `stack` profile: also ship the Privilege agent gateway's log FILE.
+#   docker compose -f docker-compose.yml -f docker-compose.privilege.yml --profile stack up -d
+# It mounts AI-DEMO2's gateway log volume READ-ONLY into Alloy. The volume must already exist (AI-DEMO2's `mcpgw` profile
+# creates it); a different volume can be named with PRIVILEGE_LOG_VOLUME. Without this file the stack still works and ships
+# the Privilege sources that print to stdout.
+services:
+  alloy:
+    volumes:
+      - privilege-logs:/privilege-logs:ro
+
+volumes:
+  privilege-logs:
+    external: true
+    name: ${PRIVILEGE_LOG_VOLUME:-ai-demo_mcpgw-logs}

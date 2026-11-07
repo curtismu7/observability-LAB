@@ -1,13 +1,14 @@
-// The lab's own collector. It reads the stdout of the container the browser driver goes through (the lab-proxy, which
-// logs one access line per request to every lab behind it) and sets `service` from the container name, the same rule
-// AI-DEMO2's collector uses. Every line the proxy prints is shipped, not only the driver's; the driver's requests carry
+// The lab's own collector. It reads the stdout of three containers: the lab-proxy (one access line per request to every
+// lab behind it, which the browser driver exercises) and the two Privilege sources that print to stdout, the node sensor
+// and the MCP gateway. `service` comes from the container name with a leading ai-demo- removed, the same rule
+// AI-DEMO2's collector uses. The agent gateway (ping-mcpgw) writes a FILE instead; see the last section. Every line the proxy prints is shipped, not only the driver's; the driver's requests carry
 // a HeadlessChrome user agent. `origin` says which stack collected the line.
 // The Docker socket is mounted read-only in compose.yml, as in AI-DEMO2: it only lists containers and reads their logs.
 discovery.docker "labs" {
   host = "unix:///var/run/docker.sock"
   filter {
     name   = "name"
-    values = ["^/?lab-proxy-lab-proxy-1$"]
+    values = ["^/?lab-proxy-lab-proxy-1$", "^/?procyon-nodesensor$", "^/?ai-demo-mcp-gateway$"]
   }
 }
 
@@ -15,7 +16,7 @@ discovery.relabel "svc" {
   targets = discovery.docker.labs.targets
   rule {
     source_labels = ["__meta_docker_container_name"]
-    regex         = "/(.*)"
+    regex         = "/(?:ai-demo-)?(.*)"
     target_label  = "service"
   }
   rule {
@@ -27,7 +28,40 @@ discovery.relabel "svc" {
 loki.source.docker "labs" {
   host       = "unix:///var/run/docker.sock"
   targets    = discovery.relabel.svc.output
+  forward_to = [loki.process.recent.receiver]
+}
+
+// After a restart the collector re-reads each container's whole stdout history (the positions live on tmpfs), and Loki
+// rejects entries that far behind ("entry too far behind", measured 2026-11-07). Only recent lines are shipped.
+loki.process "recent" {
   forward_to = [loki.write.local.receiver]
+  stage.drop {
+    older_than          = "15m"
+    drop_counter_reason = "older_than_15m"
+  }
+}
+
+// The Privilege agent gateway (ping-mcpgw) logs to a file, /var/log/procyon/cyonproxy.log, and prints nothing on stdout,
+// so a collector that reads container stdout never sees it (measured 2026-11-07). docker-compose.privilege.yml mounts
+// AI-DEMO2's log volume read-only at /privilege-logs; without it this block finds no file and ships nothing.
+// tail_from_end: only lines written from now on (the file holds days of history). Only the three message families the
+// lab models are kept; the file's other lines (tenant and node ids, peer certificates) are dropped before Loki.
+local.file_match "privilege" {
+  path_targets = [{"__path__" = "/privilege-logs/cyonproxy.log", "service" = "ping-mcpgw", "origin" = "observability-lab-stack"}]
+}
+
+loki.source.file "privilege" {
+  targets       = local.file_match.privilege.targets
+  tail_from_end = true
+  forward_to    = [loki.process.privilege.receiver]
+}
+
+loki.process "privilege" {
+  forward_to = [loki.write.local.receiver]
+  stage.match {
+    selector = "{service=\"ping-mcpgw\"} !~ \"authorization header missing|Invalid Authorization token|Error receiving from the stream\""
+    action   = "drop"
+  }
 }
 
 loki.write "local" {
