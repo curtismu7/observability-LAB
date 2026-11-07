@@ -28,6 +28,7 @@ Name observability-LAB; custom UI with NO Grafana (one container); Real = read-o
 
 ## Traps
 
+- Privilege logs in the stack (2026-11-07): sensor (service `procyon-nodesensor`, 197 lines in the first minutes, 127 with no level word, so level reads `unknown`) and MCP gateway (`mcp-gateway`; silent while idle, so ProductLogSilence lists it) from stdout; agent gateway through `docker-compose.privilege.yml`. The file path was verified with a throwaway volume (3 kept, a `Tenant:` line dropped, history not read), NOT with the real gateway: starting it connects to the owner's tenant and was not done for this change. The sensor also prints a second shape, `<timestamp> tls     pid=... <process> host [...] -> <target>`, that the mock data does not model.
 - Own stack (2026-11-07): `docker compose --profile stack up -d` (Loki + Alloy in the lab's network namespace, `OBS_LOKI_URL=http://127.0.0.1:3100`) and `docker compose --profile drive run --rm driver` (Playwright in Docker, GET only, via the lab-proxy). Verified end to end: 267 proxy lines in Loki after one run, readable in Real mode. Limits: lines are nginx access-log shape; 5 of 11 default labs were skipped (421/403/502 at the proxy, their Host allowlists differ); the driver needs the lab-proxy up on 127.0.0.1:8443.
 - Real mode needs a loopback Loki on purpose: the netguard refuses all other outbound. Do not loosen it; port-forward a remote Loki to localhost instead.
 - Mock events are replayed relative to now. If you pin timestamps for a test, pass a fixed `now`.

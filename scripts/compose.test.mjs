@@ -80,3 +80,16 @@ test('Loki and Alloy make no outbound calls of their own and listen on loopback'
   assert.match(here('docker-compose.yml'), /--server\.http\.listen-addr=127\.0\.0\.1:12345/);
   assert.match(here('stack/alloy.alloy'), /url = "http:\/\/127\.0\.0\.1:3100\//);
 });
+
+test('Privilege sources: stdout containers are filtered by exact name, the gateway file is read-only, tailed from the end and filtered', () => {
+  const alloy = here('stack/alloy.alloy');
+  for (const name of ['lab-proxy-lab-proxy-1', 'procyon-nodesensor', 'ai-demo-mcp-gateway']) assert.match(alloy, new RegExp(`"\\^/\\?${name}\\$"`), `${name} is matched exactly`);
+  assert.match(alloy, /\(\?:ai-demo-\)\?/, 'service drops the ai-demo- prefix, as AI-DEMO2 does');
+  assert.match(alloy, /tail_from_end = true/, 'the gateway file holds days of history; only new lines are shipped');
+  assert.match(alloy, /stage\.match[\s\S]*action\s*=\s*"drop"/, 'lines outside the three modelled families are dropped');
+  assert.match(alloy, /older_than\s*=\s*"15m"/, 'a restart does not replay old container history into Loki');
+  const priv = here('docker-compose.privilege.yml');
+  assert.match(priv, /privilege-logs:\/privilege-logs:ro/, 'the gateway log volume is mounted read-only');
+  assert.match(priv, /external: true/, 'the volume belongs to AI-DEMO2; this lab never creates it');
+  assert.doesNotMatch(priv, /^\s*ports:/m);
+});
