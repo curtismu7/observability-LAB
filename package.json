@@ -1,0 +1,28 @@
+{
+  "name": "observability-lab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Observability Lab: follow a log line from PingOne, PingFederate and Ping Gateway to a searchable, alertable store, with a label lab that shows the silent failure. Standalone, simplified version of the AI-DEMO2 monitoring stack.",
+  "license": "MIT",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "engines": {
+    "node": ">=26"
+  },
+  "scripts": {
+    "start": "npm start -w server",
+    "build": "npm run build -w web",
+    "test": "npm test -w server && npm test -w web && node --test scripts/*.test.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "reset": "node scripts/reset.mjs",
+    "prepare": "git config core.hooksPath .githooks || true",
+    "talk-track": "node scripts/build-talk-track.mjs",
+    "content-pack": "node scripts/build-content-pack.mjs && node scripts/validate-content-pack.mjs"
+  },
+  "devDependencies": {
+    "ajv": "^8.20.0"
+  }
+}

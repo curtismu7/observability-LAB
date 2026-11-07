@@ -1,0 +1,27 @@
+{
+  "demos": [
+    {
+      "id": "observability-lab",
+      "name": "Observability Lab",
+      "kind": "Demo",
+      "description": "Follow a log line from PingOne, PingFederate and Ping Gateway to a searchable, alertable store. Seeded mock logs, a LogQL-lite query box, three alert rules and a label lab that shows the silent failure when one relabel rule is missing. Real mode reads one loopback Loki, read-only.",
+      "url": "http://localhost:7800",
+      "healthPath": "/api/health",
+      "composeFile": "observability-lab/docker-compose.yml",
+      "composeOverlays": [],
+      "pingProducts": [],
+      "notes": "Host-run: ./scripts/run.sh (port 7800). Mock needs no tenant and no credentials. Docker: HOST_PORT=7800 docker compose up --build -d (published on 127.0.0.1 only). Real: set OBS_LOKI_URL to a loopback Loki (for example the AI-DEMO2 observability profile on http://127.0.0.1:3100). Derived from the AI-DEMO2 monitoring stack (Alloy, Loki, Grafana); line shapes are illustrative and labelled UNVERIFIED. Catalog id D122 is a plan id, not assigned by the owner. Repo: not created yet.",
+      "repo": "https://github.com/curtismu7/observability-LAB",
+      "catalogId": "D122",
+      "alsoCatalogIds": [],
+      "tags": [
+        "pingone",
+        "pingfederate",
+        "pinggateway",
+        "audit-observability",
+        "simulated"
+      ],
+      "where": "installed"
+    }
+  ]
+}

@@ -1,0 +1,202 @@
+{
+  "schema": "diagram-studio/1",
+  "id": "log-pipeline",
+  "title": "From a Ping product to a searchable, alertable log line",
+  "lede": "PingOne reaches the store through a webhook forwarder; PingFederate and the gateway are tailed from container stdout by a collector that relabels the container name into a service label; the viewer queries the store; rules watch logs and metrics. Mock only.",
+  "groups": {
+    "product": {
+      "label": "Ping products (mock)",
+      "color": "red"
+    },
+    "pipeline": {
+      "label": "Collection pipeline",
+      "color": "dark"
+    },
+    "store": {
+      "label": "Store and query",
+      "color": "blue"
+    },
+    "alert": {
+      "label": "Alerting",
+      "color": "amber"
+    }
+  },
+  "nodes": [
+    {
+      "id": "pingone",
+      "label": "PingOne (SaaS): webhooks",
+      "group": "product",
+      "x": 0,
+      "y": 0
+    },
+    {
+      "id": "pf",
+      "label": "PingFederate container",
+      "group": "product",
+      "x": 0,
+      "y": 160
+    },
+    {
+      "id": "gw",
+      "label": "Ping Gateway container",
+      "group": "product",
+      "x": 0,
+      "y": 320
+    },
+    {
+      "id": "fwd",
+      "label": "Webhook forwarder (Tier 1)",
+      "group": "pipeline",
+      "x": 300,
+      "y": 0
+    },
+    {
+      "id": "docker",
+      "label": "Container stdout via Docker socket",
+      "group": "pipeline",
+      "x": 300,
+      "y": 160
+    },
+    {
+      "id": "alloy",
+      "label": "Collector: discover + relabel to service",
+      "group": "pipeline",
+      "x": 600,
+      "y": 160
+    },
+    {
+      "id": "loki",
+      "label": "Log store (Loki)",
+      "group": "store",
+      "x": 900,
+      "y": 160
+    },
+    {
+      "id": "viewer",
+      "label": "Viewer: LogQL query",
+      "group": "store",
+      "x": 1200,
+      "y": 160
+    },
+    {
+      "id": "prom",
+      "label": "Metrics scrape (Prometheus)",
+      "group": "store",
+      "x": 600,
+      "y": 320
+    },
+    {
+      "id": "rules",
+      "label": "Alert rules",
+      "group": "alert",
+      "x": 900,
+      "y": 320
+    }
+  ],
+  "edges": [
+    {
+      "source": "pingone",
+      "target": "fwd",
+      "label": "webhook POST"
+    },
+    {
+      "source": "fwd",
+      "target": "loki",
+      "label": "push app events"
+    },
+    {
+      "source": "pf",
+      "target": "docker",
+      "label": "stdout/stderr"
+    },
+    {
+      "source": "gw",
+      "target": "docker",
+      "label": "stdout/stderr"
+    },
+    {
+      "source": "docker",
+      "target": "alloy",
+      "label": "discover containers"
+    },
+    {
+      "source": "alloy",
+      "target": "loki",
+      "label": "push with service label"
+    },
+    {
+      "source": "gw",
+      "target": "prom",
+      "label": "/metrics"
+    },
+    {
+      "source": "loki",
+      "target": "viewer",
+      "label": "query_range"
+    },
+    {
+      "source": "prom",
+      "target": "rules",
+      "label": "ratio rules"
+    },
+    {
+      "source": "loki",
+      "target": "rules",
+      "label": "log-count rules"
+    }
+  ],
+  "steps": [
+    {
+      "title": "PingOne webhooks take the short path",
+      "what": "PingOne is SaaS: it has no container to tail. Its events reach the store only because a forwarder receives the webhook and pushes it. This was the ONLY thing in the store until the collector existed.",
+      "edges": [
+        0,
+        1
+      ]
+    },
+    {
+      "title": "Containers just print",
+      "what": "PingFederate and the gateway write to stdout. Without a collector nothing ships that anywhere: the lines are visible only to the container runtime.",
+      "edges": [
+        2,
+        3
+      ]
+    },
+    {
+      "title": "The collector discovers every container",
+      "what": "It lists containers through the read-only Docker socket and reads their streams, the same permission `docker logs` needs.",
+      "edges": [
+        4
+      ]
+    },
+    {
+      "title": "Relabel turns a container name into a service",
+      "what": "The container name arrives with a leading slash and a prefix. One relabel rule strips both so every query uses the bare service name. Turn the rule off in the Label lab and every panel goes empty, with no error.",
+      "edges": [
+        5
+      ]
+    },
+    {
+      "title": "The gateway also exposes metrics",
+      "what": "Metrics are a second feed with a different shape: counters by route and status family. Rules over them use ratios, not counts.",
+      "edges": [
+        6
+      ]
+    },
+    {
+      "title": "The viewer asks the store a question",
+      "what": "A LogQL query: a label selector, then line filters. The store answers with streams; the viewer shows the lines.",
+      "edges": [
+        7
+      ]
+    },
+    {
+      "title": "Rules watch both feeds",
+      "what": "A rule fires on a ratio with a traffic floor, so one failed probe on an idle route does not page anyone.",
+      "edges": [
+        8,
+        9
+      ]
+    }
+  ]
+}

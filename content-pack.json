@@ -1,0 +1,204 @@
+{
+  "schema": "demo-content-pack/1",
+  "id": "observability-lab",
+  "title": "Observability Lab",
+  "version": "0.1.0",
+  "demo": {
+    "id": "observability-lab",
+    "name": "Observability Lab",
+    "catalog": "D122",
+    "baseUrl": "http://localhost:7800",
+    "doctor": "/api/health",
+    "tags": [
+      "logging",
+      "observability",
+      "loki",
+      "alerting",
+      "pingfederate",
+      "pingone",
+      "gateway",
+      "mock-only"
+    ]
+  },
+  "glossary": [
+    {
+      "id": "relabel",
+      "term": "Service label and relabel rule",
+      "definition": "The collector turns a container name such as /obs-demo-pingfederate into the service label pingfederate. Every query and alert uses the bare name, so a missing or wrong rule empties every panel without an error.",
+      "aliases": [
+        "service label"
+      ]
+    },
+    {
+      "id": "trace-join",
+      "term": "Trace or client id as the join",
+      "definition": "A shared id carried by every product is what lets one sign-in be followed across PingOne, PingFederate and the gateway. Without it you can only line up clocks.",
+      "aliases": [
+        "correlation id"
+      ]
+    },
+    {
+      "id": "ratio-rule",
+      "term": "Ratio rule with a traffic floor",
+      "definition": "An alert on a ratio of failures to traffic, ignored below a minimum amount of traffic, so a normal 401 or one failed probe on an idle route does not page anyone.",
+      "aliases": [
+        "traffic floor"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "id": "rfc9728",
+      "title": "RFC 9728: OAuth 2.0 Protected Resource Metadata",
+      "url": "https://www.rfc-editor.org/rfc/rfc9728",
+      "kind": "standard",
+      "use": "Why a healthy MCP client starts a session with a 401 (discovery).",
+      "status": "not-read",
+      "checked": "2026-11-07"
+    },
+    {
+      "id": "trace-context",
+      "title": "W3C Trace Context",
+      "url": "https://www.w3.org/TR/trace-context/",
+      "kind": "standard",
+      "use": "The traceparent header shown on every hop.",
+      "status": "not-read",
+      "checked": "2026-11-07"
+    }
+  ],
+  "cards": [
+    {
+      "id": "try-follow-a-signin",
+      "label": "Scenario 1: Follow one sign-in across three products",
+      "description": "One shared id is the whole join. Search the client id and a single sign-in appears in PingOne, PingFederate and the gateway, in time order. Without a shared id you can only line up clocks.",
+      "group": "try-it",
+      "action": {
+        "type": "route",
+        "href": "/#scenario-follow-a-signin"
+      },
+      "terms": [
+        "trace-join"
+      ],
+      "story": "S01"
+    },
+    {
+      "id": "try-login-burst",
+      "label": "Scenario 2: A burst of failed sign-ins",
+      "description": "Two stray failures an hour are noise. Eight in two minutes from one user is the rule firing. The rule counts lines, so the count is only as good as the filter.",
+      "group": "try-it",
+      "action": {
+        "type": "route",
+        "href": "/#scenario-login-burst"
+      },
+      "terms": [
+        "ratio-rule"
+      ],
+      "story": "S02"
+    },
+    {
+      "id": "try-the-401-is-normal",
+      "label": "Scenario 3: The 401s that are not an outage",
+      "description": "Measured in AI-DEMO2: a spec-following MCP client starts every session with a 401 to discover the authorization server, so rejections run near 1:1 with successes while everything works. A rule on \"any 401\" would fire forever and be muted within a day.",
+      "group": "try-it",
+      "action": {
+        "type": "route",
+        "href": "/#scenario-the-401-is-normal"
+      },
+      "terms": [
+        "ratio-rule"
+      ],
+      "story": "S03"
+    },
+    {
+      "id": "try-gateway-failing",
+      "label": "Scenario 4: The gateway really is failing",
+      "description": "Now 5xx responses are most of the traffic and there is enough traffic to trust the ratio. The traffic floor is what stops one failed probe on an idle route from paging someone.",
+      "group": "try-it",
+      "action": {
+        "type": "route",
+        "href": "/#scenario-gateway-failing"
+      },
+      "terms": [
+        "ratio-rule"
+      ],
+      "story": "S04"
+    },
+    {
+      "id": "try-everything-went-quiet",
+      "label": "Scenario 5: Everything went quiet",
+      "description": "Turn the relabel rule off and the container names reach the store with a slash and a prefix, so every query by service name returns nothing, with no error. Measured in AI-DEMO2 (config.docker.alloy): leaving the stack prefix on made every container-log panel silently empty. The leading slash is this lab's own extension of that lesson.",
+      "group": "try-it",
+      "action": {
+        "type": "route",
+        "href": "/#scenario-everything-went-quiet"
+      },
+      "terms": [
+        "relabel"
+      ],
+      "story": "S05"
+    },
+    {
+      "id": "concept-label-lab",
+      "label": "The label lab",
+      "description": "Turn the collector relabel rule off and watch every by-service query return nothing, with no error.",
+      "group": "concept",
+      "action": {
+        "type": "route",
+        "href": "/#label"
+      },
+      "terms": [
+        "relabel"
+      ]
+    },
+    {
+      "id": "concept-alerts",
+      "label": "Alert rules",
+      "description": "Three rules over the stream: a burst, a ratio with a traffic floor, and silence.",
+      "group": "concept",
+      "action": {
+        "type": "route",
+        "href": "/#alerts"
+      },
+      "terms": [
+        "ratio-rule"
+      ]
+    },
+    {
+      "id": "ref-doctor",
+      "label": "Doctor and health",
+      "description": "Preflight checks and the demo-health/1 endpoint.",
+      "group": "setup",
+      "action": {
+        "type": "route",
+        "href": "/api/health"
+      }
+    }
+  ],
+  "stories": [
+    {
+      "id": "S01",
+      "title": "Follow one sign-in across three products",
+      "say": "One shared id is the whole join. Search the client id and a single sign-in appears in PingOne, PingFederate and the gateway, in time order. Without a shared id you can only line up clocks."
+    },
+    {
+      "id": "S02",
+      "title": "A burst of failed sign-ins",
+      "say": "Two stray failures an hour are noise. Eight in two minutes from one user is the rule firing. The rule counts lines, so the count is only as good as the filter."
+    },
+    {
+      "id": "S03",
+      "title": "The 401s that are not an outage",
+      "say": "Measured in AI-DEMO2: a spec-following MCP client starts every session with a 401 to discover the authorization server, so rejections run near 1:1 with successes while everything works. A rule on \"any 401\" would fire forever and be muted within a day."
+    },
+    {
+      "id": "S04",
+      "title": "The gateway really is failing",
+      "say": "Now 5xx responses are most of the traffic and there is enough traffic to trust the ratio. The traffic floor is what stops one failed probe on an idle route from paging someone."
+    },
+    {
+      "id": "S05",
+      "title": "Everything went quiet",
+      "say": "Turn the relabel rule off and the container names reach the store with a slash and a prefix, so every query by service name returns nothing, with no error. Measured in AI-DEMO2 (config.docker.alloy): leaving the stack prefix on made every container-log panel silently empty. The leading slash is this lab's own extension of that lesson."
+    }
+  ]
+}
