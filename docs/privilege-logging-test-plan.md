@@ -63,7 +63,7 @@ Classification here is **inferred from route names and the Privilege docs**. No 
 | `/demo/enterprise-mcp`, `/gateway-claims`, `/gateway-enforcement-map`, `/gateway-stats` | claims, enforcement, stats | 3, 4 | mcp-tool-not-granted, mcp-app-not-granted |
 | `/agent-gateway-authorization`, `/agent-gateway-capabilities`, `/agent-gateway-inspector`, `/privileges-gateway-preview`, `/privilege-gateway-topologies`, `/privilege-mcp-diagrams`, `/privilege-mcp-learning` | mostly explanation; some probe the gateway | 3 or none | aggregate-allowed, aggregate-none |
 | `/privilege-a2a`, `/ai-products/privilege-a2a`, `/a2a-architecture`, `/a2a-protocol-learning` | A2A through the gateway, guardrail ladder | 4, 3 | a2a-call |
-| `/personal-agent-dual-gateway`, `/uhg-chatgpt-mcp-flow`, `/pingone-mcp-inspector` | external-agent lanes | 3, 2 | none yet |
+| the dual-gateway and ChatGPT MCP flow pages (route names left out: the lab's customer-name test rejects some words in them), `/pingone-mcp-inspector` | external-agent lanes | 3, 2 | none yet |
 
 ### LLM and guardrails
 
