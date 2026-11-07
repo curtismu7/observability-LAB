@@ -12,6 +12,9 @@ services:
       PORT: "7800"
       OBS_BIND: 0.0.0.0
       LAB_ALLOWED_HOSTS: ${LAB_ALLOWED_HOSTS:-observability-lab.local.ping-devops.com}
+      # Real mode reads this Loki, read-only, loopback only. Empty = Real stays disabled. With the stack profile, run:
+      #   OBS_LOKI_URL=http://127.0.0.1:3100 docker compose --profile stack up -d
+      OBS_LOKI_URL: ${OBS_LOKI_URL:-}
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
@@ -22,3 +25,56 @@ services:
       start_interval: 2s
       timeout: 5s
       retries: 3
+
+  # ── The lab's own log stack (profile `stack`; off by default, the Mac is short on memory) ──────────────────
+  # Loki and Alloy share the lab's network namespace, so Loki is 127.0.0.1:3100 for the lab (which accepts only
+  # loopback Loki URLs) and NO extra host port is published. Nothing here has an outbound network use: Loki
+  # analytics and Alloy reporting are off.
+  loki:
+    image: grafana/loki:3.3.2
+    profiles: ["stack"]
+    network_mode: "service:observability-lab"
+    depends_on: [observability-lab]
+    command: ["-config.file=/etc/stack/loki.yaml"]
+    volumes:
+      - ./stack:/etc/stack:ro
+    tmpfs: ["/tmp"]
+    mem_limit: 512m
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  # Reads the lab-proxy's stdout through the Docker socket, mounted read-only (as AI-DEMO2's collector does):
+  # it can list containers and read their logs, nothing else.
+  alloy:
+    image: grafana/alloy:v1.19.2
+    profiles: ["stack"]
+    network_mode: "service:observability-lab"
+    depends_on: [loki]
+    command: ["run", "--server.http.listen-addr=127.0.0.1:12345", "--storage.path=/tmp/alloy", "--disable-reporting", "/etc/stack/alloy.alloy"]
+    volumes:
+      - ./stack:/etc/stack:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    tmpfs: ["/tmp"]
+    mem_limit: 256m
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  # The browser driver: `docker compose --profile drive run --rm driver`. It visits the labs through the lab-proxy
+  # (GET only), so the proxy logs real requests for Alloy to ship. local.ping-devops.com is mapped to the host.
+  driver:
+    build:
+      context: .
+      dockerfile: driver/Dockerfile
+    profiles: ["drive"]
+    extra_hosts:
+      - "local.ping-devops.com:host-gateway"
+    environment:
+      DRIVE_ROUNDS: ${DRIVE_ROUNDS:-1}
+      DRIVE_LABS: ${DRIVE_LABS:-}
+    ipc: host
+    tmpfs: ["/tmp"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
