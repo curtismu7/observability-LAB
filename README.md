@@ -27,6 +27,9 @@ Catalog id **D123** (chosen by the owner 2026-11-07; D122 belongs to a2a-lab).
 - Through the shared lab-proxy: `https://local.ping-devops.com:8443/observability-lab/` once the owner registers the route (see `docs/HANDOFF.md`).
 - Tests: `npm ci && npm test` (server, web and packaging). Preflight: `npm run doctor`. Reset: `npm run reset`.
 - Real: copy `.env.example` to `.env` and set `OBS_LOKI_URL`.
+- **Own log stack, no AI-DEMO2 needed (profile `stack`).** `OBS_LOKI_URL=http://127.0.0.1:3100 docker compose --profile stack up -d` starts this lab plus its own Loki and Alloy. They share the lab's network namespace, so Loki is on the lab's loopback and no extra host port is published. Alloy reads the **lab-proxy's** stdout through the Docker socket (mounted read-only, as AI-DEMO2's collector does) and sets `service` from the container name. Stop with `docker compose --profile stack down`.
+- **Browser driver (profile `drive`).** `docker compose --profile drive run --rm driver` runs headless Chromium (Playwright 1.59.1, in Docker) against the labs through the lab-proxy, so the proxy writes real access-log lines for Alloy to ship. GET only: it loads each lab's page, reads `/api/health` and clicks tabs; no form, sign-in or POST. `DRIVE_LABS=a-lab,b-lab` and `DRIVE_ROUNDS=3` tune it. Query the result in Real mode with `{service="lab-proxy-lab-proxy-1"}`.
+- **What this measured (2026-11-07):** nearly every `-LAB` app prints only a startup line to stdout, so the browser makes no app log lines; the lines come from the **proxy's access log**. First run: 6 of 11 default labs reached; the others answered 421, 403 or 502 at the proxy and were skipped. The proxy log holds every request through it, so Loki also gets non-driver lines (health polls from other tools); driver requests carry a HeadlessChrome user agent. The lines are nginx access-log shape, not the Ping product shapes, so the six product alert rules still read as silent in this stack.
 
 ## Tabs
 

@@ -1,0 +1,37 @@
+// The lab's own collector. It reads the stdout of the container the browser driver goes through (the lab-proxy, which
+// logs one access line per request to every lab behind it) and sets `service` from the container name, the same rule
+// AI-DEMO2's collector uses. Every line the proxy prints is shipped, not only the driver's; the driver's requests carry
+// a HeadlessChrome user agent. `origin` says which stack collected the line.
+// The Docker socket is mounted read-only in compose.yml, as in AI-DEMO2: it only lists containers and reads their logs.
+discovery.docker "labs" {
+  host = "unix:///var/run/docker.sock"
+  filter {
+    name   = "name"
+    values = ["^/?lab-proxy-lab-proxy-1$"]
+  }
+}
+
+discovery.relabel "svc" {
+  targets = discovery.docker.labs.targets
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "service"
+  }
+  rule {
+    target_label = "origin"
+    replacement  = "observability-lab-stack"
+  }
+}
+
+loki.source.docker "labs" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.svc.output
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://127.0.0.1:3100/loki/api/v1/push"
+  }
+}

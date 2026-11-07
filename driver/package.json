@@ -1,0 +1,7 @@
+{
+  "name": "observability-lab-driver",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "dependencies": { "playwright": "1.59.1" }
+}

@@ -52,3 +52,31 @@ test('the container is locked down: read-only fs, no capabilities, no new privil
   assert.match(compose, /cap_drop: \[ALL\]/);
   assert.match(compose, /no-new-privileges:true/);
 });
+
+test('the stack profile adds no published port, shares the lab network namespace and is locked down', () => {
+  const compose = here('docker-compose.yml');
+  const block = (name) => new RegExp(`^  ${name}:\\n((?:    .*\\n|\\n)+)`, 'm').exec(compose)?.[1] ?? '';
+  for (const name of ['loki', 'alloy', 'driver']) {
+    const b = block(name);
+    assert.ok(b, `${name} service exists`);
+    assert.doesNotMatch(b, /^    ports:/m, `${name} publishes nothing`);
+    assert.match(b, /read_only: true/);
+    assert.match(b, /cap_drop: \[ALL\]/);
+    assert.match(b, /no-new-privileges:true/);
+  }
+  for (const name of ['loki', 'alloy']) {
+    assert.match(block(name), /network_mode: "service:observability-lab"/, `${name} shares the lab's network namespace`);
+    assert.match(block(name), /image: grafana\/(loki:3\.3\.2|alloy:v1\.19\.2)\n/, `${name} image is pinned to a version`);
+    assert.match(block(name), /profiles: \["stack"\]/);
+  }
+  assert.match(block('alloy'), /\/var\/run\/docker\.sock:\/var\/run\/docker\.sock:ro/, 'the Docker socket is read-only');
+  assert.match(block('driver'), /profiles: \["drive"\]/);
+});
+
+test('Loki and Alloy make no outbound calls of their own and listen on loopback', () => {
+  assert.match(here('stack/loki.yaml'), /reporting_enabled: false/);
+  assert.match(here('stack/loki.yaml'), /http_listen_address: 127\.0\.0\.1/);
+  assert.match(here('docker-compose.yml'), /--disable-reporting/);
+  assert.match(here('docker-compose.yml'), /--server\.http\.listen-addr=127\.0\.0\.1:12345/);
+  assert.match(here('stack/alloy.alloy'), /url = "http:\/\/127\.0\.0\.1:3100\//);
+});
