@@ -6,7 +6,7 @@
   "demo": {
     "id": "observability-lab",
     "name": "Observability Lab",
-    "catalog": "D122",
+    "catalog": "D123",
     "baseUrl": "http://localhost:7800",
     "doctor": "/api/health",
     "tags": [

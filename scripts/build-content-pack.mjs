@@ -18,7 +18,7 @@ export function buildPack() {
     id: 'observability-lab',
     title: 'Observability Lab',
     version,
-    demo: { id: 'observability-lab', name: 'Observability Lab', catalog: 'D122', baseUrl: 'http://localhost:7800', doctor: '/api/health', tags: ['logging', 'observability', 'loki', 'alerting', 'pingfederate', 'pingone', 'gateway', 'mock-only'] },
+    demo: { id: 'observability-lab', name: 'Observability Lab', catalog: 'D123', baseUrl: 'http://localhost:7800', doctor: '/api/health', tags: ['logging', 'observability', 'loki', 'alerting', 'pingfederate', 'pingone', 'gateway', 'mock-only'] },
     glossary: [
       { id: 'relabel', term: 'Service label and relabel rule', definition: 'The collector turns a container name such as /obs-demo-pingfederate into the service label pingfederate. Every query and alert uses the bare name, so a missing or wrong rule empties every panel without an error.', aliases: ['service label'] },
       { id: 'trace-join', term: 'Trace or client id as the join', definition: 'A shared id carried by every product is what lets one sign-in be followed across PingOne, PingFederate and the gateway. Without it you can only line up clocks.', aliases: ['correlation id'] },

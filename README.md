@@ -2,7 +2,7 @@
 
 **Tier: Demo.** Three Ping products log in three different ways. This lab follows a log line from the product to a searchable, alertable store, and shows what goes wrong when one small collector rule is missing. It is the standalone version of the logging and monitoring stack in AI-DEMO2 (collector, Loki, dashboards, alert rules), without Grafana: one small container with its own log store, a query box and three alert rules.
 
-Catalog id **D122** is a plan id: the owner has not assigned one yet.
+Catalog id **D123** (chosen by the owner 2026-11-07; D122 belongs to a2a-lab).
 
 ## What is simulated
 

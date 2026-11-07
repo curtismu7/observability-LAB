@@ -4,7 +4,7 @@
 
 ## What this lab is
 
-A standalone, simpler version of the AI-DEMO2 monitoring stack (collector, Loki, dashboards, alert rules) for three Ping products: PingOne, PingFederate, Ping Gateway. See README.md for what it teaches. Tier Demo; ports 7800; catalog id D122 is a PLAN id (owner has not assigned one).
+A standalone, simpler version of the AI-DEMO2 monitoring stack (collector, Loki, dashboards, alert rules) for three Ping products: PingOne, PingFederate, Ping Gateway. See README.md for what it teaches. Tier Demo; ports 7800; catalog id D123 (owner's choice 2026-11-07; D122 belongs to a2a-lab).
 
 ## State
 
