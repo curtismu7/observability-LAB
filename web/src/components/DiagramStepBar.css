@@ -1,9 +1,7 @@
 @keyframes dstep-flow {
   to { stroke-dashoffset: -20; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .react-flow__edge path { animation: none !important; }
-}
+/* Reduced motion is handled where the animation is applied: hooks/useDiagramStepper.js. */
 
 /* DiagramStepBar.css — the card and caption under the shared DiagramControls toolbar. */
 

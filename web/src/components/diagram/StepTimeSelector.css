@@ -16,14 +16,14 @@
   font-size: 0.78rem;
   padding: 0.25rem 0.5rem;
   border-radius: var(--radius-md);
-  border: 1px solid #cdd1d4;
-  background: #fff;
-  color: #263746;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-body);
   cursor: pointer;
   font-family: inherit;
 }
 .dc-steptime-select:disabled {
-  color: #051727;
+  color: var(--text);
   cursor: not-allowed;
-  background: #f7f8f8;
+  background: var(--surface-2);
 }

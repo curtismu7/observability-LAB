@@ -78,6 +78,9 @@ const NOW_STYLE = {
   strokeDasharray: "12 8",
   animation: "dstep-flow 0.9s linear infinite",
 };
+// Honour the OS reduced-motion setting here: the animation is an inline style, so a stylesheet could only beat it with !important.
+const nowStyle = () => (reducedMotion() ? { ...NOW_STYLE, animation: "none" } : NOW_STYLE);
+function reducedMotion() { return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
 const FUTURE_STYLE = { opacity: 0.35, strokeWidth: 2.5, strokeDasharray: "8 6" };
 
 /**
@@ -87,7 +90,7 @@ const FUTURE_STYLE = { opacity: 0.35, strokeWidth: 2.5, strokeDasharray: "8 6" }
 export function stepEdges(edges, step) {
   if (step < 0) return edges;
   return edges.map((e, i) => {
-    if (i === step) return { ...e, animated: true, style: { ...e.style, ...NOW_STYLE } };
+    if (i === step) return { ...e, animated: true, style: { ...e.style, ...nowStyle() } };
     if (i > step) return { ...e, style: { ...e.style, ...FUTURE_STYLE } };
     return e;
   });
@@ -103,7 +106,7 @@ export function markNodes(nodes, hotIds) {
 /** Accents the edges at the given indexes (page-driven highlight) and leaves the rest alone. */
 export function markEdges(edges, active) {
   const on = new Set(active);
-  return edges.map((e, i) => (on.has(i) ? { ...e, animated: true, style: { ...e.style, ...NOW_STYLE } } : e));
+  return edges.map((e, i) => (on.has(i) ? { ...e, animated: true, style: { ...e.style, ...nowStyle() } } : e));
 }
 
 /** "Source → Target: label" per edge; `names` maps node id to display text. Edges are objects or [src, tgt, label] tuples. */
