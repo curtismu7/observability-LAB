@@ -5,7 +5,7 @@
 
 export const TITLE = 'Observability Lab';
 export const INTRO = 'Ping products log in different ways. This lab follows a log line from the product to a searchable, alertable store, and shows what goes wrong when one small rule is missing.';
-export const BANNER = 'SIMULATED: seeded, synthetic log events for five Ping sources, a mock log store and mock alert rules. Nothing here reads a real product log or calls a real tenant. In Real mode only, it reads one loopback Loki that you configured.';
+export const BANNER = 'SIMULATED: seeded, synthetic log events for six Ping sources, a mock log store and mock alert rules. Nothing here reads a real product log or calls a real tenant. In Real mode only, it reads one loopback Loki that you configured.';
 export const REAL_BANNER = 'REAL (read-only): log lines are read from the loopback Loki you configured; products, alert thresholds and the label lab still follow this lab\'s rules. Nothing is written to Loki.';
 
 // The collector's relabel rule, modelled on the AI-DEMO2 collector config (config.docker.alloy), with this lab's own prefix: strips Docker's leading "/" and the stack prefix.
@@ -39,7 +39,7 @@ export const PRODUCTS = [
   },
   {
     id: 'privilege', name: 'PingOne Privilege (node sensor)', service: 'procyon-nodesensor', container: '/obs-demo-procyon-nodesensor',
-    how: 'A container that watches the host and reports what it finds. It prints structured key=value lines and plain process events to stdout. The Privilege agent gateway (container ping-mcpgw in AI-DEMO2) is not covered: it was not running when these shapes were measured.',
+    how: 'A container that watches the host and reports what it finds. It prints structured key=value lines and plain process events to stdout.',
     sources: [
       { id: 'sensor-report', title: 'Sensor reports', where: 'Structured key=value lines on stdout.', status: 'measured', sample: 'level=INFO msg="nodesensor: reported findings" sent=1 accepted=1', note: 'Shape measured on 2026-11-07 from a running AI-DEMO2 stack. The real line starts with time=...; it is left out here because the store keeps the timestamp.' },
       { id: 'exec-events', title: 'Process exec events', where: 'One plain line per observed process start.', status: 'measured', sample: 'exec    pid=4242  python           host', note: 'Shape measured on 2026-11-07 from a running AI-DEMO2 stack; the pid and process here are made up.' },
@@ -50,6 +50,15 @@ export const PRODUCTS = [
     how: 'A container that prints free-text lines prefixed [GW] to stdout. The other MCP servers in AI-DEMO2 (mcp-server, mcp-weather, mcp-brave and so on) get a service label the same way but print other shapes: mcp-server prints tracing span fields.',
     sources: [
       { id: 'gw-lines', title: 'Gateway stdout', where: 'Free text prefixed [GW].', status: 'measured', sample: '[GW] authz warm: ok 29ms (http://authz.example:9001)', note: 'Shape measured on 2026-11-07 from a running AI-DEMO2 stack; the real host is replaced with a .example name.' },
+    ],
+  },
+  {
+    id: 'pgateway', name: 'PingOne Privilege (agent gateway)', service: 'ping-mcpgw', container: '/obs-demo-ping-mcpgw',
+    how: 'The gateway that fronts MCP servers. It prints key=value lines (time, level, msg, and for some lines func and file). In AI-DEMO2 it writes them to a FILE inside the container, not to stdout, so a collector that reads container stdout sees nothing from it.',
+    sources: [
+      { id: 'auth-missing', title: 'Request with no token', where: 'One line per request that arrived without an Authorization header.', status: 'measured', sample: 'level=info msg="authorization header missing"', note: 'Shape measured on 2026-11-07 by starting the gateway from AI-DEMO2 docker-compose.yml (profile mcpgw). The real line also starts with time=...; it is left out here because the store keeps the timestamp. A rejected request is logged at level info, not error.' },
+      { id: 'auth-invalid', title: 'Request with a bad token', where: 'One line per request whose token the gateway refused.', status: 'measured', sample: 'level=info msg="Invalid Authorization token"', note: 'Shape measured on 2026-11-07 from the same AI-DEMO2 docker-compose.yml run. Also level info.' },
+      { id: 'mesh-error', title: 'Control-plane stream error', where: 'The gateway lost its stream to the Privilege control plane.', status: 'measured', sample: 'level=error msg="Error receiving from the stream: rpc error: code = Unavailable"', note: 'Shape measured on 2026-11-07 from the same AI-DEMO2 docker-compose.yml run; the text after code = Unavailable is cut here and no tenant or node ids are shown.' },
     ],
   },
 ];
@@ -73,7 +82,7 @@ export const SCENARIOS = [
     lesson: 'Now 5xx responses are most of the traffic and there is enough traffic to trust the ratio. The traffic floor is what stops one failed probe on an idle route from paging someone.' },
   { id: 'everything-went-quiet', title: 'Everything went quiet', query: '{service=~"pingone-webhook|pingfederate|ping-gateway"}', action: { kind: 'relabel', enabled: false }, expect: { alertFiring: 'ProductLogSilence', minProducts: 0 },
     lesson: 'Turn the relabel rule off and the container names reach the store with a slash and a prefix, so every query by service name returns nothing, with no error. Measured in AI-DEMO2 (config.docker.alloy): leaving the stack prefix on made every container-log panel silently empty. The leading slash is this lab\'s own extension of that lesson.' },
-  { id: 'more-products', title: 'Privilege and MCP lines, same label scheme', query: '{service=~"procyon-nodesensor|mcp-gateway"}', action: null, expect: { minProducts: 2 },
+  { id: 'more-products', title: 'Privilege sensor, MCP gateway and agent gateway, same label scheme', query: '{service=~"procyon-nodesensor|mcp-gateway|ping-mcpgw"}', action: null, expect: { minProducts: 3 },
     lesson: 'Two more sources reach the store the same way: the collector turns a container name into a service label. These two shapes were measured from a running AI-DEMO2 stack; they carry no shared id, so unlike the three-product sign-in they cannot be joined, only searched.' },
 ];
 
@@ -84,7 +93,8 @@ export const FACTS = [
   { id: 'lab-5xx-rule', status: 'inferred', text: 'This lab\'s gateway rule applies the ratio-plus-floor idea to 5xx responses over 5 minutes. The windows and thresholds are this lab\'s own design, not AI-DEMO2\'s.' },
   { id: 'trace-join', status: 'inferred', text: 'A shared trace or client id is what joins one sign-in across products; the seeded events carry one on purpose.' },
   { id: 'log-shapes', status: 'UNVERIFIED', text: 'The line shapes and field names shown for PingOne, PingFederate and Ping Gateway are illustrative, not checked against product documentation.' },
-  { id: 'shapes-measured', status: 'measured', text: 'On 2026-11-07 lines were read from a running AI-DEMO2 stack through its own collector rule: the Privilege node sensor prints level=INFO msg="nodesensor: reported findings" lines and plain exec lines, the MCP gateway prints [GW] lines, PingFederate server.log lines look like a timestamp, tid:<id>, DEBUG and a class name, and Ping Gateway prints Java log lines with colour codes. The PingFederate and Ping Gateway shapes in this lab\'s mock data are NOT those, so they stay illustrative.' },
+  { id: 'shapes-measured', status: 'measured', text: 'On 2026-11-07 lines were read from a running AI-DEMO2 stack through its own collector rule: the Privilege node sensor prints level=INFO msg="nodesensor: reported findings" lines and plain exec lines, the MCP gateway prints [GW] lines, the Privilege agent gateway prints time=... level=... msg=... lines, PingFederate server.log lines look like a timestamp, tid:<id>, DEBUG and a class name, and Ping Gateway prints Java log lines with colour codes. The PingFederate and Ping Gateway shapes in this lab\'s mock data are NOT those, so they stay illustrative.' },
+  { id: 'gateway-file-log', status: 'measured', text: 'On 2026-11-07 the Privilege agent gateway (ping-mcpgw) was started from AI-DEMO2 docker-compose.yml (profile mcpgw) for a few minutes. Its log is a file (/var/log/procyon/cyonproxy.log, on a volume) and docker logs printed no lines, so AI-DEMO2\'s collector, which reads container stdout only, would ship nothing and a "no lines in 10 minutes" rule would fire for it. Of the last 3000 file lines about 830 were "authorization header missing" and 830 "Invalid Authorization token", both at level info: a level=error filter never sees a rejected request.' },
   { id: 'level-labels', status: 'UNVERIFIED', text: 'In this lab each line carries service, source and level as labels. In the AI-DEMO2 collector only service (plus component for one container) is attached (config.docker.alloy); level and source would be parsed from the line.' },
 ];
 
@@ -93,7 +103,7 @@ export const TOOLS = [
 ];
 
 export const TALK_TRACK = [
-  { id: 'say-first', title: 'Say this first', say: 'Everything on this screen is simulated: seeded log lines for five Ping sources and a mock store. The formats are illustrative. What is measured is the pipeline lesson, taken from the AI-DEMO2 monitoring stack.' },
+  { id: 'say-first', title: 'Say this first', say: 'Everything on this screen is simulated: seeded log lines for six Ping sources and a mock store. The formats are illustrative. What is measured is the pipeline lesson, taken from the AI-DEMO2 monitoring stack.' },
   { id: 'join', title: 'One sign-in, three products', say: 'Search the client id. One sign-in shows up in PingOne, PingFederate and the gateway. That shared id is the whole join; without it you are lining up clocks.' },
   { id: 'burst', title: 'A burst, not a blip', say: 'Press Simulate burst. Eight failed sign-ins in two minutes and the rule fires. Two stray failures an hour never would.' },
   { id: 'ratio', title: 'Why a ratio', say: 'Look at the gateway 401s: lots of them, nothing is wrong. A spec-following client starts every session with one. So this lab\'s gateway rule uses a ratio of 5xx with a traffic floor, not a count of rejections.' },
