@@ -11,6 +11,19 @@ export class LokiError extends Error {
 }
 
 const LEVEL = /\blevel=(debug|info|warn|warning|error|fatal)\b/i;
+const LEVEL_WORD = /\b(TRACE|DEBUG|INFO|WARN|WARNING|ERROR|FATAL)\b/; // upper-case log-level words only, so prose such as "no error" never counts
+const ANSI = /\u001b\[[0-9;]*m/g;
+const NORMAL = { trace: 'debug', warning: 'warn', fatal: 'error' };
+
+// Level, most trustworthy first: an explicit `level` label, then what the line itself says (level=x, or a word like ERROR in
+// the first 300 characters with colour codes removed), then Loki's own `detected_level` guess, then unknown. detected_level
+// comes last because Loki guesses it: a colourised ERROR gateway line came back as "info".
+export function levelOf(labels, line) {
+  const head = line.slice(0, 300).replace(ANSI, '');
+  const found = labels.level || LEVEL.exec(head)?.[1] || LEVEL_WORD.exec(head)?.[1] || labels.detected_level || 'unknown';
+  const lower = String(found).toLowerCase();
+  return NORMAL[lower] || lower;
+}
 const TRACE = /\b(?:trace_id|traceparent|traceId)["=: ]+(?:00-)?([0-9a-f]{32})/i;
 
 export function mapStreams(streams, limit) {
@@ -21,7 +34,7 @@ export function mapStreams(streams, limit) {
       if (!Array.isArray(v) || typeof v[0] !== 'string' || typeof v[1] !== 'string') continue;
       const ms = Math.floor(Number(BigInt(v[0].replace(/\D/g, '') || '0') / 1_000_000n));
       const service = typeof labels.service === 'string' ? labels.service : '';
-      const level = String(labels.level || labels.detected_level || LEVEL.exec(v[1])?.[1] || 'unknown').toLowerCase();
+      const level = levelOf(labels, v[1]);
       rows.push({
         id: `loki-${v[0]}`, ts: ms, product: productOfService(service), source: String(labels.source || labels.stream || 'loki'), level,
         message: v[1].slice(0, 4000), traceId: TRACE.exec(v[1])?.[1] || null, service, labels: Object.fromEntries(Object.entries(labels).map(([k, val]) => [k, String(val)])),

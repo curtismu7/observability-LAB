@@ -27,6 +27,8 @@ test('ports: 7800 only, never a reserved or another agent\'s one', () => {
 test('reserved hosts and the host scan', () => {
   assert.ok(isReservedHost('a.b.invalid')); assert.ok(isReservedHost('mcp.northwind.example')); assert.ok(!isReservedHost('example.com'), 'the rulebook allows only .example and .invalid'); assert.ok(!isReservedHost('example.org')); assert.ok(!isReservedHost('sub.example.com'));
   assert.deepEqual(scanHosts('https://as.example.invalid/x and mail a@agent.example and http://localhost:7800/'), []);
+  assert.deepEqual(scanHosts('authz warm (http://authz.example:9001)'), [], 'a URL in parentheses keeps its host clean');
+  assert.deepEqual(scanHosts('authz warm (http://real-host.test:9001)'), ['real-host.test'], 'and a real host in parentheses is still caught');
   assert.deepEqual(scanHosts('https://example.com/mcp'), ['example.com']);
   assert.deepEqual(scanHosts('see https://real.com/x and 10.1.2.3'), ['10.1.2.3', 'real.com']);
 });

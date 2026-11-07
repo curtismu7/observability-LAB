@@ -76,7 +76,7 @@ test('relabel off: the service label carries the raw container name, every by-se
   assert.ok(ask(off, '{service="/obs-demo-pingfederate"}').total > 0, 'the lines are still there under the raw name');
   const al = await alertsFor(off);
   assert.equal(al.ProductLogSilence.state, 'firing');
-  assert.deepEqual(al.ProductLogSilence.evidence.silentServices.sort(), ['ping-gateway', 'pingfederate', 'pingone-webhook']);
+  assert.deepEqual(al.ProductLogSilence.evidence.silentServices.sort(), ['mcp-gateway', 'ping-gateway', 'pingfederate', 'pingone-webhook', 'procyon-nodesensor']);
   assert.equal(al.FailedLoginBurst.state, 'ok', 'the other rules just go quiet, which is the trap');
 });
 
@@ -110,4 +110,15 @@ test('the traffic floor is what holds the gateway rule back: all-5xx but under 1
   assert.equal(few.evidence.ratio, 1, 'the ratio alone WOULD fire');
   assert.equal(few.state, 'ok', 'the floor holds it back');
   assert.equal((await run(10)).state, 'firing');
+});
+
+test('Privilege sensor and MCP gateway lines exist, are queryable by service, and keep their measured shapes', () => {
+  const sensor = ask(fresh(), '{service="procyon-nodesensor"} |= "nodesensor: reported findings"', { limit: 50 });
+  assert.ok(sensor.entries.length >= 5 && sensor.entries.every((e) => e.product === 'privilege' && e.message.startsWith('level=INFO msg="nodesensor: reported findings"')));
+  const gw = ask(fresh(), '{service="mcp-gateway"} |= "[GW] authz warm: ok"', { limit: 50 });
+  assert.ok(gw.entries.length >= 5 && gw.entries.every((e) => e.product === 'mcp'));
+  const exec = ask(fresh(), '{service="procyon-nodesensor"} |= "exec "', { limit: 50 });
+  assert.ok(exec.entries.length >= 4);
+  // Both are fresh enough that the silence rule has nothing to say at baseline (the baseline test above asserts no rule fires).
+  for (const q of ['{service="procyon-nodesensor"}', '{service="mcp-gateway"}']) assert.ok(ask(fresh(), q, { limit: 5 }).entries.some((e) => e.ts >= NOW - 10 * 60_000), q);
 });

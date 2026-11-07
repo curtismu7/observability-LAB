@@ -40,7 +40,7 @@ export function isReservedHost(host) {
   return /(^|\.)(invalid|example)$/.test(h);
 }
 
-const NETWORK_URL = /\b(?:https?|wss?|ftp|sftp|ssh|smtp|tcp|udp):\/\/([^\s/?#"'<>\\]+)/gi;
+const NETWORK_URL = /\b(?:https?|wss?|ftp|sftp|ssh|smtp|tcp|udp):\/\/([^\s/?#"'<>\\()]+)/gi; // ( and ) never belong to an authority: a URL in parentheses must not swallow the ")"
 const EMAIL = /[A-Za-z0-9._%+-]+@([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)/g;
 const IPV4 = /\b\d{1,3}(?:\.\d{1,3}){3}\b/g;
 const stripAuthority = (a) => a.replace(/^[^@]*@/, '').replace(/:\d+$/, '');

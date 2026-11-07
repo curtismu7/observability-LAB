@@ -12,7 +12,7 @@ const { version } = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 
 export function buildPack() {
   const story = buildStory(DEFAULT_CAST);
   const sid = (n) => `S${String(n).padStart(2, '0')}`;
-  const terms = { 'follow-a-signin': ['trace-join'], 'login-burst': ['ratio-rule'], 'the-401-is-normal': ['ratio-rule'], 'gateway-failing': ['ratio-rule'], 'everything-went-quiet': ['relabel'] };
+  const terms = { 'follow-a-signin': ['trace-join'], 'login-burst': ['ratio-rule'], 'the-401-is-normal': ['ratio-rule'], 'gateway-failing': ['ratio-rule'], 'everything-went-quiet': ['relabel'], 'more-products': ['relabel'] };
   return {
     schema: 'demo-content-pack/1',
     id: 'observability-lab',

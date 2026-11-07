@@ -50,7 +50,7 @@ test('Real mode alerts are computed over Loki lines with the same rules', async 
       assert.equal(j.source, 'real');
       const by = Object.fromEntries(j.rules.map((r) => [r.id, r]));
       assert.equal(by.ProductLogSilence.state, 'firing', 'pingfederate and pingone-webhook returned nothing');
-      assert.deepEqual(by.ProductLogSilence.evidence.silentServices.sort(), ['pingfederate', 'pingone-webhook']);
+      assert.deepEqual(by.ProductLogSilence.evidence.silentServices.sort(), ['mcp-gateway', 'pingfederate', 'pingone-webhook', 'procyon-nodesensor']);
     }, { now: () => NOW, env: { OBS_LOKI_URL: loki.base } });
   } finally { await loki.close(); }
 });
@@ -92,6 +92,18 @@ test('the client is read-only by construction: GET only, never follows a redirec
     }, { env: { OBS_LOKI_URL: loki.base } });
     assert.equal(loki.requests.length, 1, 'a rejected query never reached Loki');
   } finally { await loki.close(); }
+});
+
+test('level: the label wins, then the line, then Loki\'s guess, then unknown', () => {
+  const lvl = (labels, line) => mapStreams([{ stream: { service: 's', ...labels }, values: [[ns(1), line]] }], 5)[0].level;
+  assert.equal(lvl({ level: 'warn' }, 'ERROR boom'), 'warn', 'an explicit label beats the text');
+  assert.equal(lvl({ detected_level: 'info' }, '\u001b[1;31m\u001b[0;39m[thread-1] \u001b[1;31mERROR\u001b[0;39m RouterHandler no handler'), 'error', 'a colourised ERROR line beats Loki\'s guess');
+  assert.equal(lvl({}, '2026-11-07 15:24:16,901 tid:abc DEBUG [org.x.Y] flush cookies'), 'debug');
+  assert.equal(lvl({}, 'WARNING disk almost full'), 'warn');
+  assert.equal(lvl({}, 'FATAL out of memory'), 'error');
+  assert.equal(lvl({ detected_level: 'info' }, 'plain text with no level'), 'info', 'detected_level is the fallback');
+  assert.equal(lvl({}, 'there was no error here'), 'unknown', 'lower-case prose is not a level');
+  assert.equal(lvl({}, 'x'.repeat(400) + ' ERROR'), 'unknown', 'only the start of the line is searched');
 });
 
 test('mapStreams survives hostile or malformed Loki data', () => {
