@@ -76,7 +76,7 @@ test('relabel off: the service label carries the raw container name, every by-se
   assert.ok(ask(off, '{service="/obs-demo-pingfederate"}').total > 0, 'the lines are still there under the raw name');
   const al = await alertsFor(off);
   assert.equal(al.ProductLogSilence.state, 'firing');
-  assert.deepEqual(al.ProductLogSilence.evidence.silentServices.sort(), ['mcp-gateway', 'ping-gateway', 'pingfederate', 'pingone-webhook', 'procyon-nodesensor']);
+  assert.deepEqual(al.ProductLogSilence.evidence.silentServices.sort(), ['mcp-gateway', 'ping-gateway', 'ping-mcpgw', 'pingfederate', 'pingone-webhook', 'procyon-nodesensor']);
   assert.equal(al.FailedLoginBurst.state, 'ok', 'the other rules just go quiet, which is the trap');
 });
 
@@ -121,4 +121,12 @@ test('Privilege sensor and MCP gateway lines exist, are queryable by service, an
   assert.ok(exec.entries.length >= 4);
   // Both are fresh enough that the silence rule has nothing to say at baseline (the baseline test above asserts no rule fires).
   for (const q of ['{service="procyon-nodesensor"}', '{service="mcp-gateway"}']) assert.ok(ask(fresh(), q, { limit: 5 }).entries.some((e) => e.ts >= NOW - 10 * 60_000), q);
+});
+
+test('Privilege agent gateway: rejected requests are logged at level info (measured), only the control-plane stream error is error', () => {
+  const rejected = ask(fresh(), '{service="ping-mcpgw"} |= "Authorization"', { limit: 100 });
+  assert.ok(rejected.entries.length >= 5 && rejected.entries.every((e) => e.product === 'pgateway' && e.level === 'info'));
+  const errors = ask(fresh(), '{service="ping-mcpgw"} |= "level=error"', { limit: 20 });
+  assert.ok(errors.entries.length >= 1 && errors.entries.every((e) => e.level === 'error' && /Unavailable/.test(e.message)));
+  assert.ok(ask(fresh(), '{service="ping-mcpgw"}', { limit: 5 }).entries.some((e) => e.ts >= NOW - 10 * 60_000), 'fresh enough that the silence rule is quiet at baseline');
 });

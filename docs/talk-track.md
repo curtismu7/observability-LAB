@@ -4,7 +4,7 @@
 
 ## Say this first
 
-Everything on this screen is simulated: seeded log lines for five Ping sources and a mock store. The formats are illustrative. What is measured is the pipeline lesson, taken from the AI-DEMO2 monitoring stack.
+Everything on this screen is simulated: seeded log lines for six Ping sources and a mock store. The formats are illustrative. What is measured is the pipeline lesson, taken from the AI-DEMO2 monitoring stack.
 
 ## One sign-in, three products
 
@@ -37,4 +37,4 @@ The line shapes are illustrative and labelled UNVERIFIED. This lab does not clai
 3. **The 401s that are not an outage.** Measured in AI-DEMO2: a spec-following MCP client starts every session with a 401 to discover the authorization server, so rejections run near 1:1 with successes while everything works. A rule on "any 401" would fire forever and be muted within a day.
 4. **The gateway really is failing.** Now 5xx responses are most of the traffic and there is enough traffic to trust the ratio. The traffic floor is what stops one failed probe on an idle route from paging someone.
 5. **Everything went quiet.** Turn the relabel rule off and the container names reach the store with a slash and a prefix, so every query by service name returns nothing, with no error. Measured in AI-DEMO2 (config.docker.alloy): leaving the stack prefix on made every container-log panel silently empty. The leading slash is this lab's own extension of that lesson.
-6. **Privilege and MCP lines, same label scheme.** Two more sources reach the store the same way: the collector turns a container name into a service label. These two shapes were measured from a running AI-DEMO2 stack; they carry no shared id, so unlike the three-product sign-in they cannot be joined, only searched.
+6. **Privilege sensor, MCP gateway and agent gateway, same label scheme.** Two more sources reach the store the same way: the collector turns a container name into a service label. These two shapes were measured from a running AI-DEMO2 stack; they carry no shared id, so unlike the three-product sign-in they cannot be joined, only searched.

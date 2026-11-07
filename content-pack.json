@@ -139,7 +139,7 @@
     },
     {
       "id": "try-more-products",
-      "label": "Scenario 6: Privilege and MCP lines, same label scheme",
+      "label": "Scenario 6: Privilege sensor, MCP gateway and agent gateway, same label scheme",
       "description": "Two more sources reach the store the same way: the collector turns a container name into a service label. These two shapes were measured from a running AI-DEMO2 stack; they carry no shared id, so unlike the three-product sign-in they cannot be joined, only searched.",
       "group": "try-it",
       "action": {
@@ -216,7 +216,7 @@
     },
     {
       "id": "S06",
-      "title": "Privilege and MCP lines, same label scheme",
+      "title": "Privilege sensor, MCP gateway and agent gateway, same label scheme",
       "say": "Two more sources reach the store the same way: the collector turns a container name into a service label. These two shapes were measured from a running AI-DEMO2 stack; they carry no shared id, so unlike the three-product sign-in they cannot be joined, only searched."
     }
   ]

@@ -1,4 +1,4 @@
-// The mock log store: a seeded, deterministic stream for the five sources, replayed relative to "now" so the
+// The mock log store: a seeded, deterministic stream for the six sources, replayed relative to "now" so the
 // last 30 minutes are always populated, plus incidents injected per workspace. Messages keep {{cast}} tokens until read.
 // Pure: no I/O, no clock of its own (now is passed in).
 import { PRODUCTS } from './logData.js';
@@ -52,6 +52,9 @@ function buildBaseline() {
   // Privilege node sensor and MCP gateway: steady background lines (shapes measured on a running AI-DEMO2 stack), no shared id.
   for (let i = 0; i < 10; i++) push(i * 3 * MIN + 8000, 'privilege', 'sensor-report', 'info', `level=INFO msg="nodesensor: reported findings" sent=1 accepted=1`);
   for (let i = 0; i < 8; i++) push(i * 4 * MIN + 3000, 'privilege', 'exec-events', 'info', `exec    pid=${4200 + i * 17}  python           host`);
+  for (let i = 0; i < 12; i++) push(i * 90_000 + 21_000, 'pgateway', 'auth-missing', 'info', `level=info msg="authorization header missing"`);
+  for (let i = 0; i < 6; i++) push(i * 4 * MIN + 33_000, 'pgateway', 'auth-invalid', 'info', `level=info msg="Invalid Authorization token"`);
+  for (let i = 0; i < 2; i++) push(i * 9 * MIN + 47_000, 'pgateway', 'mesh-error', 'error', `level=error msg="Error receiving from the stream: rpc error: code = Unavailable"`);
   for (let i = 0; i < 15; i++) push(i * 2 * MIN + 15_000, 'mcp', 'gw-lines', 'info', `[GW] authz warm: ok ${20 + ((i * 7) % 25)}ms (http://authz.example:9001)`);
   return out.sort((a, b) => b.offsetMs - a.offsetMs).map((e, i) => ({ ...e, id: `base-${String(i).padStart(4, '0')}` }));
 }
