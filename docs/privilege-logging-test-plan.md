@@ -38,7 +38,7 @@ This plan therefore **reuses its case ids and marker method** and adds what it d
 | 6 | AI-DEMO2 BFF and app logs | Not in the lab | Not examined |
 | 7 | Lab-proxy access lines | Alloy, container stdout | In the lab. nginx shape, not Privilege shape. Its Loki service label is `lab-proxy-lab-proxy-1`; 0 lines in the last 3 h at preflight (nothing had driven the labs) |
 
-Phase 0 also leaves one open question: source 3 shows two request-rejection families at equal counts (467 each). Something is sending requests without a credential and with a bad one. **I have not identified what.** Find it before reading the counts as test results.
+Phase 0 also left one open question: source 3 showed two rejection messages at equal counts (467 each). Phase 2 resolved part of it, see section 8a: the two lines are written together by **one** request (83 microseconds apart in the file), so they are not two kinds of request. The sender is still unidentified.
 
 ## 4. Method for every case
 
@@ -124,10 +124,31 @@ privilege-demo, privilege-map, privilege-logging, privilege-a2a-anthropic-demo, 
 |---|---|---|
 | 0 | Preflight: stack up, Loki has lines for sources 1 to 3 | **Done 2026-11-07**, results in section 3 |
 | 1 | Surface and source matrix | **Done, inferred classification** (section 5). 1b still to do: read each page's source to confirm what it actually calls |
-| 2 | Scoped POST driver and the per-case method; run groups A to J against sources 1 to 3 | Not started |
+| 2 | Scoped POST driver and the per-case method; run groups A to J against sources 1 to 3 | **Started**: unauthenticated probes measured (section 8a). Blocked on a credential for the rest |
 | 3 | Sources 4 and 5: kubectl proxy and search endpoint paths; one SE capture | Not started, needs SE up and owner approval at the time |
 | 4 | Fold results into the lab: replace UNVERIFIED shapes, add missing products and queries, re-run the suites | Not started |
 | 5 | Report: one table of results with counts and labels | Not started |
+
+## 8a. Phase 2 findings so far (measured on the real local gateway, 2026-11-08 00:3xZ, evening of 2026-11-07 local)
+
+Image digest as pinned in AI-DEMO2 `docker-compose.yml` (profile `mcpgw`). One request per row unless noted; the lines below were read from `/var/log/procyon/cyonproxy.log` inside the container.
+
+| Request (loopback port 8623, Host `mcpgw.local...`) | Result | Log lines written |
+|---|---|---|
+| `POST /mcp`, no credential, and with a malformed bearer, and with a made-up key | 404 each | **none** |
+| `POST /aggregate/mcp`, `/opensearch-hitl/mcp`, `/banking-aggregate/mcp`, no credential | 401 each | **none** |
+| `POST /` with curl | 200 | four `[SERVER]` lines: `Incoming request: POST /`, `User-Agent`, `Remote Addr`, `Content-Type` |
+| `GET /` with no credential, and with a bad bearer | 200 each | four `[SERVER]` lines each; **not** the rejection pair |
+| `GET /` on port 8620 | 200 | none |
+
+What this changes:
+
+1. **A rejected MCP request leaves no line in this gateway's file log** (measured for the three app paths above). The log cannot answer "who was refused".
+2. **The `authorization header missing` + `Invalid Authorization token` pair is not produced by anything I sent.** It is written together, by one request, from the agentless REST path (`forwardReq`). Which client sends those is unknown. The file also holds 2,525 `Incoming request: GET /` lines, all from a `Go-http-client/1.1` at the Docker network gateway address (traffic arrives through the published port); I did not link those to the pairs.
+3. **The `[SERVER]` family carries the client's `User-Agent` and `Remote Addr`**, which no other line does. The lab's Alloy filter drops it today (it keeps only the three modelled families). Whether to ship it is a Phase 4 decision.
+4. **The lab's mock data models the two rejection messages as independent streams** (every 90 s and every 4 min). The real log writes them as a pair. That mock shape is wrong, and Phase 4 should fix it.
+
+What blocks the rest of Phase 2: allowed and denied tool calls, guardrail verdicts, A2A and LLM cases all need an agent key or a signed-in user of the owner's tenant. Without one, the only local POST actions available write no log line, so the scoped POST driver would have nothing to observe yet.
 
 ## 9. Constraints
 
@@ -135,7 +156,7 @@ Low load on the live gateway. Local Docker only; the hosted SE copy is scaled do
 
 ## 10. Open items
 
-1. What sends the unauthenticated and bad-token requests to the agent gateway (467 each)?
+1. What sends the paired `authorization header missing` / `Invalid Authorization token` requests to the agent gateway?
 2. Is the doc claim that model calls reach Elasticsearch current, given the capture found none?
 3. Phase 1b: which pages call the gateway, and which only explain?
 4. Real gateway left running (`ai-demo-ping-mcpgw`) for Phase 2; stop it with `docker rm -f ai-demo-ping-mcpgw` when not needed.
