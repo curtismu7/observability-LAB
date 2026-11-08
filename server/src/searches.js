@@ -13,6 +13,11 @@ export function discoverUrl(origin, dataView, kql) {
   return `${origin}/app/discover#/?_a=(${viewOf(dataView)}${query})&${DISCOVER_TIME}`;
 }
 
+// Discover in ES|QL mode, with the query filled in and the last 24 hours. ES|QL reads an index directly, so no data view is needed.
+export function esqlUrl(origin, esql) {
+  return `${origin}/app/discover#/?_g=(time:(from:now-24h,to:now))&_a=(query:(esql:${encodeURIComponent(rison(esql))}))`;
+}
+
 export const MAX_INPUT = 200;
 export class SearchInputError extends Error {}
 // A typed value as a KQL quoted string. Empty (after trimming), too long, or with control characters: refused.
@@ -109,3 +114,12 @@ export const SEARCH_GROUPS = [
   },
 ];
 export const SECURITY_ALERTS_PATH = '/app/security/alerts';
+
+// ES|QL searches on the pingone-events index, the one pingone-events-LAB forwards each PingOne event to (fields: @timestamp, eventType,
+// actorId, status, correlationId; the original event is under raw). No input: each is a fixed query.
+export const ESQL_INDEX = 'pingone-events';
+export const ESQL_SEARCHES = [
+  { id: 'pe-latest', title: 'Latest events', question: 'What has PingOne just sent?', esql: `FROM ${ESQL_INDEX} | SORT @timestamp DESC | LIMIT 50` },
+  { id: 'pe-failed', title: 'Failures', question: 'Which events failed?', esql: `FROM ${ESQL_INDEX} | WHERE status == "FAILED" | SORT @timestamp DESC | LIMIT 50` },
+  { id: 'pe-by-type', title: 'Events by type', question: 'Which event types arrive, and how many?', esql: `FROM ${ESQL_INDEX} | STATS events = COUNT(*) BY eventType | SORT events DESC` },
+];

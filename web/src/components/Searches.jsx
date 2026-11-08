@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { CopyButton } from "./PrivilegeKibana";
 import { visible } from "../safeText";
-import { SEARCH_GROUPS, SECURITY_ALERTS_PATH, SearchInputError, buildKql, optionOf, searchRunUrl } from "../../../server/src/searches.js";
+import { ESQL_INDEX, ESQL_SEARCHES, SEARCH_GROUPS, SECURITY_ALERTS_PATH, SearchInputError, buildKql, esqlUrl, optionOf, searchRunUrl } from "../../../server/src/searches.js";
 
 const external = { target: "_blank", rel: "noopener noreferrer" };
 export const DEFAULT_KIBANA = "http://localhost:5601";
@@ -46,6 +46,22 @@ function Search({ search, origin }) {
   );
 }
 
+// One fixed ES|QL query on the pingone-events index: Copy and Run in Discover (ES|QL mode, last 24 hours).
+function EsqlSearch({ search, origin }) {
+  return (
+    <section className="panel search" data-testid={`search-${search.id}`} aria-labelledby={`h-${search.id}`}>
+      <h3 id={`h-${search.id}`}>{search.title}</h3>
+      <p className="muted">{search.question}</p>
+      <p><code data-testid="esql">{visible(search.esql)}</code></p>
+      <p className="muted">Index <code>{ESQL_INDEX}</code>, last 24 hours.</p>
+      <p>
+        <CopyButton text={search.esql} label={`the query ${search.title}`} />{" "}
+        <a href={esqlUrl(origin, search.esql)} aria-label={`Run ${search.title} in Discover`} {...external}>Run in Discover</a>
+      </p>
+    </section>
+  );
+}
+
 function Links({ kibana, labLinks, origin }) {
   const dashboards = [
     ...(kibana?.dashboard ? [{ id: "privilege-logs-dashboard", title: "Privilege logs dashboard", url: kibana.dashboard }] : []),
@@ -83,6 +99,13 @@ export default function Searches({ info }) {
           </div>
         </section>
       ))}
+      <section className="search-group" aria-labelledby="g-pingone-events" data-testid="search-group-pingone-events">
+        <h2 id="g-pingone-events">PingOne Events lab index (ES|QL)</h2>
+        <p className="muted">ES|QL on the index pingone-events-LAB forwards each PingOne event to. Discover opens in ES|QL mode with the query filled in.</p>
+        <div className="cards">
+          {ESQL_SEARCHES.map((s) => <EsqlSearch key={s.id} search={s} origin={origin} />)}
+        </div>
+      </section>
       <Links kibana={kibana} labLinks={info?.labLinks} origin={origin} />
     </div>
   );
