@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { hostCheck, sameOriginWrites } from './safety.js';
 import { createHealth } from './health.js';
+import { mountShelfRoute } from './shelfLink.js';
 import { loadCast, verticalFrom, VERTICALS } from './cast.js';
 import { SIEM_DEFAULTS, SIEM_SERVICE, esPortForwardFrom, kibanaFrom, labLinksFrom, lokiUrlFrom, modeFrom, realAvailableFrom, realProblemFrom, siemFrom, siemProblemFrom } from './config.js';
 import { buildStory } from './story.js';
@@ -53,6 +54,7 @@ export function createApp({
   const api = express.Router();
   api.use(express.json({ limit: '8kb' }));
   api.use('/health', health.router);
+  mountShelfRoute(api, { env }); // GET /api/shelf for the header "Shelf" button: before the 404 below, outside the web-build check
   const castFor = (req) => loadCast(configFile, verticalFrom(req.query.vertical));
   // customer.config.json is read on every request so editing it shows up on reload.
   api.get('/scenarios', (req, res) => { res.set('Cache-Control', 'no-store'); res.json({ ...buildStory(castFor(req)), verticals: Object.keys(VERTICALS) }); });
