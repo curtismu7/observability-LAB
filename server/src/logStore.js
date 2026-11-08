@@ -52,8 +52,20 @@ function buildBaseline() {
   // Privilege node sensor and MCP gateway: steady background lines (shapes measured on a running AI-DEMO2 stack), no shared id.
   for (let i = 0; i < 10; i++) push(i * 3 * MIN + 8000, 'privilege', 'sensor-report', 'info', `level=INFO msg="nodesensor: reported findings" sent=1 accepted=1`);
   for (let i = 0; i < 8; i++) push(i * 4 * MIN + 3000, 'privilege', 'exec-events', 'info', `exec    pid=${4200 + i * 17}  python           host`);
-  for (let i = 0; i < 12; i++) push(i * 90_000 + 21_000, 'pgateway', 'auth-missing', 'info', `level=info msg="authorization header missing"`);
-  for (let i = 0; i < 6; i++) push(i * 4 * MIN + 33_000, 'pgateway', 'auth-invalid', 'info', `level=info msg="Invalid Authorization token"`);
+  // The two rejection messages are written together by ONE request (measured 2026-11-08: the invalid-token line follows the
+  // missing-header line within a millisecond in 22,022 of 22,192 cases), so the baseline writes them as a pair, not as two streams.
+  for (let i = 0; i < 12; i++) {
+    push(i * 90_000 + 21_000, 'pgateway', 'auth-missing', 'info', `level=info msg="authorization header missing"`);
+    push(i * 90_000 + 20_999, 'pgateway', 'auth-invalid', 'info', `level=info msg="Invalid Authorization token"`);
+  }
+  // Request received: four lines per request, the only lines that name the client (User-Agent, Remote Addr). 192.0.2.x is a documentation address.
+  for (let i = 0; i < 15; i++) {
+    const at = i * 2 * MIN + 9000;
+    push(at + 3, 'pgateway', 'server-request', 'info', `level=info msg="\\n[SERVER]  Incoming request: GET /"`);
+    push(at + 2, 'pgateway', 'server-request', 'info', `level=info msg="[SERVER]  User-Agent: Go-http-client/1.1"`);
+    push(at + 1, 'pgateway', 'server-request', 'info', `level=info msg="[SERVER]  Remote Addr: 192.0.2.1:${40000 + i}"`);
+    push(at, 'pgateway', 'server-request', 'info', `level=info msg="[SERVER]  Content-Type: "`);
+  }
   for (let i = 0; i < 2; i++) push(i * 9 * MIN + 47_000, 'pgateway', 'mesh-error', 'error', `level=error msg="Error receiving from the stream: rpc error: code = Unavailable"`);
   for (let i = 0; i < 15; i++) push(i * 2 * MIN + 15_000, 'mcp', 'gw-lines', 'info', `[GW] authz warm: ok ${20 + ((i * 7) % 25)}ms (http://authz.example:9001)`);
   return out.sort((a, b) => b.offsetMs - a.offsetMs).map((e, i) => ({ ...e, id: `base-${String(i).padStart(4, '0')}` }));

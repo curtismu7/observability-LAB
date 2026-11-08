@@ -3,6 +3,7 @@
 ## 0.1.0 (unreleased)
 
 - Added: Privilege agent gateway (`ping-mcpgw`) as a sixth source (lab PR #1).
+- Changed: the agent gateway mock writes the two rejection messages as a pair from one request (measured: 22,022 of 22,192 invalid-token lines directly follow a missing-header line), not as two independent streams. Added: the four `[SERVER]` request lines (Incoming request, User-Agent, Remote Addr, Content-Type) to the mock and to the Alloy filter; a refused request to an MCP app path writes no line (measured).
 - Added: Privilege logs in the own stack: node sensor and MCP gateway from stdout, agent gateway from AI-DEMO2's log volume (optional `docker-compose.privilege.yml`, read-only, tail from end, three message families kept). Alloy drops container history older than 15 minutes (a restart otherwise made Loki reject the replay).
 - Added: own log stack (compose profile `stack`: Loki 3.3.2 + Alloy v1.19.2 sharing the lab's network namespace, nothing extra published) and a Playwright browser driver in Docker (profile `drive`) that visits labs through the lab-proxy so Alloy ships real access-log lines. See README.
 

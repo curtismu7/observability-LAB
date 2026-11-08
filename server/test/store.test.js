@@ -123,6 +123,24 @@ test('Privilege sensor and MCP gateway lines exist, are queryable by service, an
   for (const q of ['{service="procyon-nodesensor"}', '{service="mcp-gateway"}']) assert.ok(ask(fresh(), q, { limit: 5 }).entries.some((e) => e.ts >= NOW - 10 * 60_000), q);
 });
 
+test('Privilege agent gateway: the invalid-token line is written with a missing-header line by the same request (measured), never alone', () => {
+  const all = ask(fresh(), '{service="ping-mcpgw"}', { limit: 500 }).entries;
+  const invalid = all.filter((e) => e.message.includes('Invalid Authorization token'));
+  const missing = all.filter((e) => e.message.includes('authorization header missing'));
+  assert.ok(invalid.length >= 5 && invalid.length === missing.length, 'one of each per request');
+  for (const e of invalid) assert.ok(missing.some((m) => e.ts - m.ts >= 0 && e.ts - m.ts <= 5), `invalid-token line at ${e.ts} has a missing-header line within 5 ms before it`);
+});
+
+test('Privilege agent gateway: a request received is four back-to-back [SERVER] lines that name the client, with a documentation address', () => {
+  const lines = ask(fresh(), '{service="ping-mcpgw"} |= "[SERVER]"', { limit: 500 }).entries;
+  assert.ok(lines.length >= 20 && lines.length % 4 === 0 && lines.every((e) => e.source === 'server-request' && e.level === 'info'));
+  assert.equal(lines.filter((e) => /Incoming request: GET \//.test(e.message)).length, lines.length / 4);
+  assert.equal(lines.filter((e) => /User-Agent: Go-http-client\/1\.1/.test(e.message)).length, lines.length / 4);
+  const addrs = lines.filter((e) => /Remote Addr: /.test(e.message));
+  assert.equal(addrs.length, lines.length / 4);
+  assert.ok(addrs.every((e) => /Remote Addr: 192\.0\.2\.1:\d+/.test(e.message)), 'a documentation address, never a real host address');
+});
+
 test('Privilege agent gateway: rejected requests are logged at level info (measured), only the control-plane stream error is error', () => {
   const rejected = ask(fresh(), '{service="ping-mcpgw"} |= "Authorization"', { limit: 100 });
   assert.ok(rejected.entries.length >= 5 && rejected.entries.every((e) => e.product === 'pgateway' && e.level === 'info'));

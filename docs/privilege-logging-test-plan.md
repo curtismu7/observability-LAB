@@ -145,8 +145,8 @@ What this changes:
 
 1. **A rejected MCP request leaves no line in this gateway's file log** (measured for the three app paths above). The log cannot answer "who was refused".
 2. **The `authorization header missing` + `Invalid Authorization token` pair is not produced by anything I sent.** It is written together, by one request, from the agentless REST path (`forwardReq`). Which client sends those is unknown. The file also holds 2,525 `Incoming request: GET /` lines, all from a `Go-http-client/1.1` at the Docker network gateway address (traffic arrives through the published port); I did not link those to the pairs.
-3. **The `[SERVER]` family carries the client's `User-Agent` and `Remote Addr`**, which no other line does. The lab's Alloy filter drops it today (it keeps only the three modelled families). Whether to ship it is a Phase 4 decision.
-4. **The lab's mock data models the two rejection messages as independent streams** (every 90 s and every 4 min). The real log writes them as a pair. That mock shape is wrong, and Phase 4 should fix it.
+3. **The `[SERVER]` family carries the client's `User-Agent` and `Remote Addr`**, which no other line does. Phase 4 ships it: the Alloy filter now keeps these four lines, and the mock models them (source `server-request`).
+4. **The mock used to model the two rejection messages as independent streams** (every 90 s and every 4 min). The real log writes them as a pair (22,022 of 22,192 invalid-token lines directly follow a missing-header line; the other 170 were not examined). Phase 4 changed the mock to write pairs.
 
 What blocks the rest of Phase 2: allowed and denied tool calls, guardrail verdicts, A2A and LLM cases all need an agent key or a signed-in user of the owner's tenant. Without one, the only local POST actions available write no log line, so the scoped POST driver would have nothing to observe yet.
 
