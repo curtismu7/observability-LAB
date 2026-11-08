@@ -47,6 +47,7 @@ export default function PrivilegeKibana({ kibana }) {
   if (!kibana) return null;
   const saved = kibana.savedSearches || [];
   const queries = kibana.queries || [];
+  const links = kibana.links || [];
   return (
     <section className="panel" aria-labelledby="kibana-h" data-testid="kibana-panel">
       <h2 id="kibana-h">Privilege logs in Kibana</h2>
@@ -56,9 +57,17 @@ export default function PrivilegeKibana({ kibana }) {
         {kibana.settingValid === false && <> PRIVILEGE_KIBANA_URL is not usable, so the default origin is shown.</>}
       </p>
       <p>
-        <a href={kibana.dashboard} {...external}>Dashboard</a>{" · "}
-        <a href={kibana.discover} {...external}>Discover (last 30 days)</a>
+        <a href={kibana.dashboard} {...external}>Privilege logs dashboard</a>{" · "}
+        <a href={kibana.discover} {...external}>Discover on Privilege logs (last 30 days)</a>
       </p>
+      {links.length > 0 && (
+        <>
+          <h3>More in Kibana</h3>
+          <ul className="kql-links" data-testid="kibana-links">
+            {links.map((l) => <li key={l.id}><a href={l.url} {...external}>{visible(l.title)}</a>{l.description && <span className="muted"> {visible(l.description)}</span>}</li>)}
+          </ul>
+        </>
+      )}
       {saved.length > 0 && (
         <>
           <h3>Saved searches</h3>

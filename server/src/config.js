@@ -74,11 +74,21 @@ export function siemProblemFrom(env = process.env) {
   return siemFrom(env) ? null : 'PRIVILEGE_SIEM_READ_APIKEY does not look like an Elasticsearch API key (8 to 512 characters of A-Z a-z 0-9 + / = _ : -).';
 }
 
-// The Kibana links for the same events: Discover, the dashboard, five saved searches and seven ready-made KQL queries. The origin comes
+// The Kibana links for the same events: Discover, the dashboard, five saved searches, seven ready-made KQL queries, and the other Kibana
+// pages (overview and all-products dashboards, Discover on all Ping logs, detection rules and their monitoring). The origin comes
 // from a setting (default the usual port-forward); these are anchors only, the lab never calls Kibana. `Index` is the source index,
 // `privilege_event_kind` is console or runtime, and the privilege.* names are Kibana runtime fields over `Data` (defined in Kibana).
 export const KIBANA_DATA_VIEW = 'privilege-logs';
 export const KIBANA_DASHBOARD_ID = 'privilege-logs-dashboard';
+export const KIBANA_PING_DATA_VIEW = 'ping-logs';
+// More Kibana pages, each a path on the same origin. `discoverView` means Discover on that data view over the same 30 days.
+export const KIBANA_LINKS = [
+  { id: 'privilege-overview', title: 'Privilege overview', description: 'Dashboard: policy denials, AI Guard denials, approval holds and decisions per day.', path: '/app/dashboards#/view/privilege-overview' },
+  { id: 'ping-logs-dashboard', title: 'Ping logs (all products)', description: 'Dashboard: PingFederate, PingGateway, the Privilege gateway and the Privilege SIEM together.', path: '/app/dashboards#/view/ping-logs-dashboard' },
+  { id: 'ping-logs-discover', title: 'Discover on Ping logs (all products)', description: 'Every product\'s lines in one Discover view (data view ping-logs), last 30 days.', discoverView: KIBANA_PING_DATA_VIEW },
+  { id: 'security-rules', title: 'Security detection rules', description: 'The detection rules that watch these logs.', path: '/app/security/rules' },
+  { id: 'rule-monitoring', title: 'Detection rule monitoring', description: "Dashboard: the detection rules' run health (Elastic's built-in rule monitoring dashboard).", path: '/app/dashboards#/view/security-detection-rule-monitoring-default' },
+];
 export const KIBANA_SAVED_SEARCHES = [
   { id: 'privilege-all', title: 'All Privilege events' },
   { id: 'privilege-runtime', title: 'Runtime events' },
@@ -91,7 +101,7 @@ export const KIBANA_QUERIES = [
   { id: 'console', title: 'All console', kql: 'privilege_event_kind : "console"' },
   { id: 'decisions', title: 'Decisions', kql: 'Index : "policy-decision-log"', note: 'Requirement 9: every policy decision.' },
   { id: 'runtime-decisions', title: 'Runtime with a decision', kql: 'privilege_event_kind : "runtime" and Index : "policy-decision-log"' },
-  { id: 'denials-holds', title: 'Denials and holds', kql: 'privilege.decision : ("deny" or "hitl")' },
+  { id: 'denials-holds', title: 'Denials and holds', kql: 'Index : "policy-decision-log" and privilege.decision : ("deny" or "hitl")', note: 'Policy decisions only: AI Guard denials are separate (the AI Guard query). A hold can appear as more than one document; the Privilege overview dashboard counts each hold once by request id.' },
   { id: 'aiguard', title: 'AI Guard', kql: 'privilege_event_kind : "runtime" and Index : "aiguard-log"', note: 'A query on a field only AI Guard events have, such as privilege.client : *, empties the decision panels on the dashboard, by design.' },
   { id: 'gateway-http', title: 'Gateway HTTP', kql: 'Index : "proxy-audit-log"' },
 ];
@@ -105,7 +115,8 @@ export const rison = (s) => `'${s.replace(/!/g, '!!').replace(/'/g, "!'")}'`;
 export function kibanaFrom(env = process.env) {
   const configured = env.PRIVILEGE_KIBANA_URL ? plainOrigin(env.PRIVILEGE_KIBANA_URL, { loopbackOnly: false }) : null;
   const origin = configured || SIEM_DEFAULTS.kibana;
-  const view = `dataSource:(dataViewId:'${KIBANA_DATA_VIEW}',type:dataView)`;
+  const viewOf = (id) => `dataSource:(dataViewId:'${id}',type:dataView)`;
+  const view = viewOf(KIBANA_DATA_VIEW);
   const time = '_g=(time:(from:now-30d,to:now))';
   const discover = `${origin}/app/discover#/?_a=(${view})&${time}`;
   return {
@@ -115,6 +126,7 @@ export function kibanaFrom(env = process.env) {
     dashboard: `${origin}/app/dashboards#/view/${KIBANA_DASHBOARD_ID}`,
     savedSearches: KIBANA_SAVED_SEARCHES.map((s) => ({ ...s, url: `${origin}/app/discover#/view/${s.id}` })),
     queries: KIBANA_QUERIES.map((qy) => ({ ...qy, runUrl: `${origin}/app/discover#/?_a=(${view},query:(language:kuery,query:${encodeURIComponent(rison(qy.kql))}))&${time}` })),
+    links: KIBANA_LINKS.map(({ path, discoverView, ...l }) => ({ ...l, url: discoverView ? `${origin}/app/discover#/?_a=(${viewOf(discoverView)})&${time}` : `${origin}${path}` })),
     fieldNotes: KIBANA_FIELD_NOTES,
     portForward: KIBANA_PORT_FORWARD,
     settingValid: !env.PRIVILEGE_KIBANA_URL || configured !== null,

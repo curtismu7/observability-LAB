@@ -128,6 +128,13 @@ describe("Privilege logs in Kibana: queries to copy", () => {
       { id: "decisions", title: "Decisions", kql: 'Index : "policy-decision-log"', note: "Requirement 9: every policy decision.", runUrl: "http://localhost:5601/app/discover#/?_a=(run-decisions)" },
       { id: "denials-holds", title: "Denials and holds", kql: 'privilege.decision : ("deny" or "hitl")', runUrl: "http://localhost:5601/app/discover#/?_a=(run-denials)" },
     ],
+    links: [
+      { id: "privilege-overview", title: "Privilege overview", description: "Dashboard: policy denials, AI Guard denials, approval holds and decisions per day.", url: "http://localhost:5601/app/dashboards#/view/privilege-overview" },
+      { id: "ping-logs-dashboard", title: "Ping logs (all products)", description: "Dashboard: all products.", url: "http://localhost:5601/app/dashboards#/view/ping-logs-dashboard" },
+      { id: "ping-logs-discover", title: "Discover on Ping logs (all products)", description: "Discover, last 30 days.", url: "http://localhost:5601/app/discover#/?_a=(ping-logs)" },
+      { id: "security-rules", title: "Security detection rules", description: "The detection rules.", url: "http://localhost:5601/app/security/rules" },
+      { id: "rule-monitoring", title: "Detection rule monitoring", description: "Dashboard: rule run health.", url: "http://localhost:5601/app/dashboards#/view/security-detection-rule-monitoring-default" },
+    ],
     fieldNotes: ["`privilege_event_kind` is console or runtime; `Index` is the source index."],
   };
   const open = async (kibana = KIBANA) => {
@@ -140,13 +147,31 @@ describe("Privilege logs in Kibana: queries to copy", () => {
 
   it("lists the dashboard, Discover, the saved searches and the tunnel command", async () => {
     const { panel } = await open();
-    expect(within(panel).getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", KIBANA.dashboard);
-    expect(within(panel).getByRole("link", { name: "Discover (last 30 days)" })).toHaveAttribute("href", KIBANA.discover);
+    expect(within(panel).getByRole("link", { name: "Privilege logs dashboard" })).toHaveAttribute("href", KIBANA.dashboard);
+    expect(within(panel).getByRole("link", { name: "Discover on Privilege logs (last 30 days)" })).toHaveAttribute("href", KIBANA.discover);
     const saved = within(within(panel).getByTestId("saved-searches")).getAllByRole("link");
     expect(saved.map((a) => a.textContent)).toEqual(["All Privilege events", "AI Guard"]);
     expect(saved[1]).toHaveAttribute("href", KIBANA.savedSearches[1].url);
     expect(within(panel).getByText(KIBANA.portForward)).toBeInTheDocument();
     for (const a of within(panel).getAllByRole("link")) expect(a).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("lists the other Kibana pages, each with its label, description and link", async () => {
+    const { panel } = await open();
+    const list = within(panel).getByTestId("kibana-links");
+    const anchors = within(list).getAllByRole("link");
+    expect(anchors.map((a) => a.textContent)).toEqual(KIBANA.links.map((l) => l.title));
+    KIBANA.links.forEach((l, i) => {
+      expect(anchors[i]).toHaveAttribute("href", l.url);
+      expect(anchors[i]).toHaveAttribute("target", "_blank");
+      expect(within(list).getByText(l.description)).toBeInTheDocument();
+    });
+  });
+
+  it("an older server without the extra links still shows the rest of the panel", async () => {
+    const { panel } = await open({ ...KIBANA, links: undefined });
+    expect(within(panel).queryByTestId("kibana-links")).toBeNull();
+    expect(within(panel).getByRole("link", { name: "Privilege logs dashboard" })).toBeInTheDocument();
   });
 
   it("each query shows its KQL, a Copy button that copies exactly that text, and a Run in Discover link", async () => {

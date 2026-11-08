@@ -221,6 +221,39 @@ test('the Mock SIEM sample has the measured shape: the four measured indices mat
   }, { env: { MODE: 'mock' } });
 });
 
+test('Kibana: the other pages (overview, all-products dashboard and Discover, detection rules and their monitoring) on the same origin', T, () => {
+  const k = kibanaFrom({});
+  assert.deepEqual(Object.fromEntries(k.links.map((l) => [l.id, l.url])), {
+    'privilege-overview': 'http://localhost:5601/app/dashboards#/view/privilege-overview',
+    'ping-logs-dashboard': 'http://localhost:5601/app/dashboards#/view/ping-logs-dashboard',
+    'ping-logs-discover': "http://localhost:5601/app/discover#/?_a=(dataSource:(dataViewId:'ping-logs',type:dataView))&_g=(time:(from:now-30d,to:now))",
+    'security-rules': 'http://localhost:5601/app/security/rules',
+    'rule-monitoring': 'http://localhost:5601/app/dashboards#/view/security-detection-rule-monitoring-default',
+  });
+  for (const l of k.links) {
+    assert.ok(l.title && l.description, `${l.id} has a label and a description`);
+    assert.deepEqual(Object.keys(l).sort(), ['description', 'id', 'title', 'url'], 'no path or view internals leak');
+  }
+  assert.equal(k.dashboard, 'http://localhost:5601/app/dashboards#/view/privilege-logs-dashboard', 'the Privilege logs dashboard stays');
+  const ping = k.links.find((l) => l.id === 'ping-logs-discover').url;
+  assert.equal(ping.slice(ping.indexOf('&_g=')), k.discover.slice(k.discover.indexOf('&_g=')), 'same time window as the Privilege Discover link');
+  const o = kibanaFrom({ PRIVILEGE_KIBANA_URL: 'https://kibana.example:5601/' });
+  for (const [a, b] of k.links.map((l, i) => [l.url, o.links[i].url])) assert.equal(b, a.replace('http://localhost:5601', 'https://kibana.example:5601'));
+  for (const bad of ['http://u:p@host:5601', 'javascript:alert(1)']) {
+    const x = kibanaFrom({ PRIVILEGE_KIBANA_URL: bad });
+    assert.deepEqual(x.links.map((l) => l.url), k.links.map((l) => l.url), `${bad} falls back to the default origin`);
+    assert.ok(!JSON.stringify(x.links).includes('u:p@'), 'no credentials in any link');
+  }
+});
+
+test('Kibana "Denials and holds" is policy decisions only, so AI Guard denials are not counted in it', T, () => {
+  const q = KIBANA_QUERIES.find((qy) => qy.id === 'denials-holds');
+  assert.equal(q.kql, 'Index : "policy-decision-log" and privilege.decision : ("deny" or "hitl")');
+  assert.match(q.note, /AI Guard denials are separate/);
+  assert.match(q.note, /once by request id/);
+  assert.ok(KIBANA_QUERIES.some((qy) => qy.id === 'aiguard'), 'the AI Guard query the note points to exists');
+});
+
 const unrison = (s) => s.slice(1, -1).replace(/!'/g, "'").replace(/!!/g, '!');
 
 test('Kibana links: dashboard, Discover, five saved searches and seven queries, all on the one origin setting', T, () => {
@@ -234,14 +267,14 @@ test('Kibana links: dashboard, Discover, five saved searches and seven queries, 
     'privilege_event_kind : "console"',
     'Index : "policy-decision-log"',
     'privilege_event_kind : "runtime" and Index : "policy-decision-log"',
-    'privilege.decision : ("deny" or "hitl")',
+    'Index : "policy-decision-log" and privilege.decision : ("deny" or "hitl")',
     'privilege_event_kind : "runtime" and Index : "aiguard-log"',
     'Index : "proxy-audit-log"',
   ]);
   assert.ok(k.fieldNotes.length === 2 && k.fieldNotes.some((n) => n.includes('runtime fields')));
   assert.equal(k.portForward, KIBANA_PORT_FORWARD);
   const o = kibanaFrom({ PRIVILEGE_KIBANA_URL: 'https://kibana.example:5601' });
-  for (const link of [o.dashboard, o.discover, ...o.savedSearches.map((s) => s.url), ...o.queries.map((qy) => qy.runUrl)]) assert.ok(link.startsWith('https://kibana.example:5601/app/'), link);
+  for (const link of [o.dashboard, o.discover, ...o.savedSearches.map((s) => s.url), ...o.queries.map((qy) => qy.runUrl), ...o.links.map((l) => l.url)]) assert.ok(link.startsWith('https://kibana.example:5601/app/'), link);
   assert.ok(![k, o].some((x) => JSON.stringify(x).includes('undefined')));
 });
 
