@@ -2,6 +2,8 @@
 
 ## 0.1.0 (unreleased)
 
+- Measured: accepted A2A calls are shipped to OpenSearch (Received HTTP request documents), so an A2A allow is visible there although the gateway pod log has no allow line; a document means accepted and handed on, not succeeded.
+
 - Added: the HITL service as a fifteenth source (receipt verification), the Ping Gateway authorize decision lines (DECISION PERMIT obligation=hitl, INDETERMINATE HITL challenge minted), and measured PingFederate audit and admin-api and Gateway access-audit lines now on stdout (AI-DEMO2 #3437). Alloy ships ten containers. All measured 2026-11-08.
 - Fixed: the HITL notes said a correlation id joins the Gateway lines to the HITL service. Checked by searching every local container for the ids: the challenge id joins the API server, Gateway and HITL service; the correlation id and trace id are in the HITL service only; none of them reach the hosted gateway log or OpenSearch.
 
