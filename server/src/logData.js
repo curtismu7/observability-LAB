@@ -5,8 +5,8 @@
 
 export const TITLE = 'Observability Lab';
 export const INTRO = 'Ping products log in different ways. This lab follows a log line from the product to a searchable, alertable store, and shows what goes wrong when one small rule is missing.';
-export const BANNER = 'SIMULATED: seeded, synthetic log events for twelve sources, a mock log store and mock alert rules. Nothing here reads a real product log or calls a real tenant. In Real mode only, it reads one loopback Loki that you configured.';
-export const REAL_BANNER = 'REAL (read-only): log lines are read from the loopback Loki you configured; products, alert thresholds and the label lab still follow this lab\'s rules. Nothing is written to Loki.';
+export const BANNER = 'SIMULATED: seeded, synthetic log events for thirteen sources, a mock log store and mock alert rules. Nothing here reads a real product log or calls a real tenant. In Real mode only, it reads one loopback Loki that you configured.';
+export const REAL_BANNER = 'REAL (read-only): log lines are read from the loopback Loki you configured (and, for service="privilege-siem", the Privilege SIEM Elasticsearch); products, alert thresholds and the label lab still follow this lab\'s rules. Nothing is written to either.';
 
 // The collector's relabel rule, modelled on the AI-DEMO2 collector config (config.docker.alloy), with this lab's own prefix: strips Docker's leading "/" and the stack prefix.
 export const RELABEL_RULE = 'source_labels = ["__meta_docker_container_name"]  regex = "/(?:obs-demo-)?(.*)"  target_label = "service"';
@@ -121,7 +121,24 @@ export const PRODUCTS = [
       { id: 'decision-json', title: 'Decision, JSON', where: 'The same decision as one JSON object.', status: 'measured', sample: '{"evt":"authz_decision","decision":"PERMIT","reason":"tool discovery permitted (per-tool)","correlationId":"<correlation-id>","decisionContext":"McpToolsList","tool":null,"sub":"<user-id>","actor":null,"workerId":"mcp-gateway","scopes":["gateway:mcp:invoke"],"rarPresent":false,"hitlApproved":false,"decisionId":"<decision-id>","policyVersion":"mock-v1"}', note: 'Measured on 2026-11-08 from the running authz-server container (AI-DEMO2 docker-compose.yml, service authz-server). The real line also starts with a timestamp; it is left out here because the store keeps the timestamp. Carries the decision and the reason. The readable line does not, so use this one when you need to know why.' },
     ],
   },
+  {
+    id: 'psiem', name: 'PingOne Privilege SIEM (Elasticsearch)', service: 'privilege-siem', container: '/obs-demo-privilege-siem',
+    how: 'The Privilege events kept in Elasticsearch, index ping-siem-events-v2: console admin changes (kind console) and runtime events (kind runtime: gateway HTTP records, policy decisions, guardrail verdicts, agent approvals). Mock shows a recorded sample with placeholders. Real reads the index read-only through a loopback port-forward when PRIVILEGE_SIEM_URL and a read key are set; ask for {service="privilege-siem"} and look back as far as 30 days. Kibana shows the same events.',
+    sources: [
+      { id: 'audit-log', title: 'Console admin change', where: 'An administrator changed something in the Privilege console.', status: 'UNVERIFIED', sample: '{"Index":"audit-log","privilege_event_kind":"console","@timestamp":"<time>","Data":{"Action":"<action>","Object":"<object>","User":"<admin-user>"}}', note: 'Described by the privilege-logging-LAB session on 2026-11-08; this lab has not read the index, so the shape is UNVERIFIED and every value here is a placeholder. Only Index and privilege_event_kind are listed as present on every document. Only Index and privilege_event_kind are described; the Data fields are a guess at the shape.' },
+      { id: 'proxy-audit-log', title: 'Gateway HTTP record', where: 'One record per request the gateway handled.', status: 'UNVERIFIED', sample: '{"Index":"proxy-audit-log","privilege_event_kind":"runtime","@timestamp":"<time>","Data":{"Method":"POST","Path":"/<app>/mcp","Status":200}}', note: 'Described by the privilege-logging-LAB session on 2026-11-08; this lab has not read the index, so the shape is UNVERIFIED and every value here is a placeholder. Only Index and privilege_event_kind are listed as present on every document. The Data fields are a guess at the shape.' },
+      { id: 'policy-decision-log', title: 'Policy decision', where: 'One record per allow or deny of a tool or app.', status: 'UNVERIFIED', sample: '{"Index":"policy-decision-log","privilege_event_kind":"runtime","@timestamp":"<time>","Data":{"User":"<user-id>","AgentKey":"<masked-key>","Target":"get_weather","Decision":"Allow","Reason":"<reason>","PolicyIDs":["<policy-id>"]}}', note: 'Described by the privilege-logging-LAB session on 2026-11-08; this lab has not read the index, so the shape is UNVERIFIED and every value here is a placeholder. Only Index and privilege_event_kind are listed as present on every document. The Data field names (User, AgentKey, Target, Decision, Reason, PolicyIDs) were listed by that session. AgentKey arrives already masked; this lab masks it again if it does not look masked. A Deny shows as level warn here.' },
+      { id: 'aiguard-log', title: 'Guardrail verdict', where: 'One record per guardrail decision.', status: 'UNVERIFIED', sample: '{"Index":"aiguard-log","privilege_event_kind":"runtime","@timestamp":"<time>","Data":{"Category":"<category>","Direction":"<direction>"}}', note: 'Described by the privilege-logging-LAB session on 2026-11-08; this lab has not read the index, so the shape is UNVERIFIED and every value here is a placeholder. Only Index and privilege_event_kind are listed as present on every document. The Data fields are a guess at the shape.' },
+      { id: 'agent-approval-log', title: 'Agent approval', where: 'A human approval requested or given for an agent action.', status: 'UNVERIFIED', sample: '{"Index":"agent-approval-log","privilege_event_kind":"runtime","@timestamp":"<time>","Data":{"Agent":"<agent>","Decision":"<decision>"}}', note: 'Described by the privilege-logging-LAB session on 2026-11-08; this lab has not read the index, so the shape is UNVERIFIED and every value here is a placeholder. Only Index and privilege_event_kind are listed as present on every document. The Data fields are a guess at the shape.' },
+    ],
+  },
 ];
+
+// Where each SIEM source's documents come from and whether they are console or runtime events: the labels both Mock and Real give them.
+export const SIEM_SOURCES = {
+  'audit-log': { kind: 'console' }, 'proxy-audit-log': { kind: 'runtime' }, 'policy-decision-log': { kind: 'runtime' },
+  'aiguard-log': { kind: 'runtime' }, 'agent-approval-log': { kind: 'runtime' },
+};
 
 // The alert rules. The ratio-plus-traffic-floor idea comes from AI-DEMO2 monitoring/alerts.yml (whose door rule is a 4xx ratio and which also
 // has a no-ratio any-5xx rule); the 5xx ratio, windows and thresholds here are this lab's own design.
@@ -158,6 +175,7 @@ export const FACTS = [
   { id: 'real-pf-gateway', status: 'measured', text: 'On 2026-11-08 the running PingFederate and Ping Gateway containers (AI-DEMO2 docker-compose.yml) were sampled. PingFederate prints its server.log to stdout with the file path in front of every line, and about half of a recent tail was DEBUG. The Ping Gateway printed one repeating ERROR line (no handler to dispatch to for a request) 400 times in its last 400 lines.' },
   { id: 'opensearch-events', status: 'measured', text: 'On 2026-11-08 the hosted gateway had written seven kinds of document to the OpenSearch index gateway-events (AI-DEMO2 pingone-privgateway-helm-main/agentless/agentless-mcpgw/templates/deployment.yaml): LLM request, AIGuard, Received HTTP request, MCP caller, A2A policy denied, MCP call and MCP policy denied. A call the pod log shows nothing for (a blocked model call) still has a document here.' },
   { id: 'startup-only', status: 'measured', text: 'The weather, Brave, audit, HITL and agent-service containers printed only start-up lines when sampled on 2026-11-08 (AI-DEMO2 docker-compose.yml), because nothing had called them. They are not sources here until there is something to measure; the HITL approval request and decision lines were not observed.' },
+  { id: 'siem-source', status: 'UNVERIFIED', text: 'The Privilege SIEM source (Elasticsearch index ping-siem-events-v2) was described by another session on 2026-11-08, not read by this lab: Mock shows a recorded sample with placeholders, and Real reads the index read-only once the owner supplies PRIVILEGE_SIEM_URL (a loopback port-forward) and a read key limited to that index. This lab never creates a credential.' },
   { id: 'level-labels', status: 'UNVERIFIED', text: 'In this lab each line carries service, source and level as labels. In the AI-DEMO2 collector only service (plus component for one container) is attached (config.docker.alloy); level and source would be parsed from the line.' },
 ];
 
@@ -166,7 +184,7 @@ export const TOOLS = [
 ];
 
 export const TALK_TRACK = [
-  { id: 'say-first', title: 'Say this first', say: 'Everything on this screen is simulated: seeded log lines for twelve sources and a mock store. The formats are illustrative. What is measured is the pipeline lesson, taken from the AI-DEMO2 monitoring stack.' },
+  { id: 'say-first', title: 'Say this first', say: 'Everything on this screen is simulated: seeded log lines for thirteen sources and a mock store. The formats are illustrative. What is measured is the pipeline lesson, taken from the AI-DEMO2 monitoring stack.' },
   { id: 'join', title: 'One sign-in, three products', say: 'Search the client id. One sign-in shows up in PingOne, PingFederate and the gateway. That shared id is the whole join; without it you are lining up clocks.' },
   { id: 'burst', title: 'A burst, not a blip', say: 'Press Simulate burst. Eight failed sign-ins in two minutes and the rule fires. Two stray failures an hour never would.' },
   { id: 'ratio', title: 'Why a ratio', say: 'Look at the gateway 401s: lots of them, nothing is wrong. A spec-following client starts every session with one. So this lab\'s gateway rule uses a ratio of 5xx with a traffic floor, not a count of rejections.' },

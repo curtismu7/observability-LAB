@@ -5,9 +5,13 @@ import { queryLogs, setRelabel, simulate } from "../api";
 import { visible } from "../safeText";
 
 export const DEFAULT_QUERY = '{service=~"pingone-webhook|pingfederate|ping-gateway"}';
-const PRODUCT_NAMES = { pingone: "PingOne", pingfederate: "PingFederate", pinggateway: "Ping Gateway", phosted: "Privilege hosted gateway", pevents: "Privilege gateway events", pguard: "Prompt-Guard sidecar", mcpbank: "Banking MCP server", llmproxy: "LLM proxy", authz: "Authz server", unknown: "Other" };
+const PRODUCT_NAMES = { pingone: "PingOne", pingfederate: "PingFederate", pinggateway: "Ping Gateway", phosted: "Privilege hosted gateway", pevents: "Privilege gateway events", pguard: "Prompt-Guard sidecar", mcpbank: "Banking MCP server", llmproxy: "LLM proxy", authz: "Authz server", psiem: "Privilege SIEM", unknown: "Other" };
 const LEVEL_CLASS = { error: "tag tag--deny", fatal: "tag tag--deny", warn: "tag tag--warn", warning: "tag tag--warn", info: "tag", debug: "tag tag--quiet" };
 const clock = (iso) => iso.slice(11, 19);
+// The SIEM's events are sparse (admin changes), so its queries can look back days; Loki and the mock keep their 30 minutes.
+const SIEM_SERVICE = "privilege-siem";
+const WINDOWS = [{ minutes: 30, label: "30 minutes" }, { minutes: 1440, label: "24 hours" }, { minutes: 10080, label: "7 days" }, { minutes: 43200, label: "30 days" }];
+const askingSiem = (q) => q.includes(SIEM_SERVICE);
 
 // Runs a scenario's action (mock only), then returns the query to run.
 async function runAction(action) {
@@ -26,6 +30,7 @@ export default function LogStream({ story, info, dataSignal, requestedId, onSele
   const [product, setProduct] = useState("all");
   const [level, setLevel] = useState("all");
   const [scenario, setScenario] = useState(null);
+  const [windowMin, setWindowMin] = useState(30);
   const seq = useRef(0);
   const [open, setOpen] = useState(() => new Set());
   const toggle = (id) => setOpen((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -37,12 +42,12 @@ export default function LogStream({ story, info, dataSignal, requestedId, onSele
     const mine = ++seq.current;
     setBusy(true);
     try {
-      const r = await queryLogs(q);
+      const r = await queryLogs(q, 200, real && askingSiem(q) ? windowMin : undefined);
       if (mine === seq.current) { setResult(r); setError(null); }
     } catch (e) {
       if (mine === seq.current) { setError(e.message); setResult(null); }
     } finally { if (mine === seq.current) setBusy(false); }
-  }, []);
+  }, [real, windowMin]);
 
   useEffect(() => { load(query); }, [query, dataSignal, load]);
 
@@ -92,11 +97,21 @@ export default function LogStream({ story, info, dataSignal, requestedId, onSele
           <input id="q" className="qinput" type="text" value={draft} onChange={(e) => setDraft(e.target.value)} spellCheck={false} autoComplete="off" maxLength={500} data-testid="query" />
           <button type="submit" data-testid="run">{busy ? "Running..." : "Run"}</button>
         </form>
+        {real && askingSiem(query) && (
+          <p className="muted">
+            <label>Look back{" "}
+              <select value={windowMin} onChange={(e) => setWindowMin(Number(e.target.value))} data-testid="siem-window">
+                {WINDOWS.map((w) => <option key={w.minutes} value={w.minutes}>{w.label}</option>)}
+              </select>
+            </label>{" "}
+            The Privilege SIEM holds sparse events, so it can look back up to 30 days.
+          </p>
+        )}
         <p className="muted">Label matchers: <code>=</code> <code>!=</code> <code>=~</code> <code>!~</code>. Line filters: <code>|=</code> <code>!=</code> <code>|~</code> <code>!~</code>. Regex operators take only a literal list like <code>"a|b"</code>.</p>
         {error && <p className="field-error" role="alert" data-testid="query-error">{visible(error)}</p>}
         {result && (
           <>
-            <p className="muted" data-testid="count" role="status">{result.count} line(s){result.truncated ? " (more exist; showing the newest)" : ""} from the {result.source === "real" ? "REAL Loki" : "MOCK store"}{result.source === "mock" && !result.relabel ? "; the relabel rule is OFF" : ""}.</p>
+            <p className="muted" data-testid="count" role="status">{result.count} line(s){result.truncated ? " (more exist; showing the newest)" : ""} from the {result.source === "real" ? (askingSiem(query) ? "REAL Privilege SIEM (Elasticsearch)" : "REAL Loki") : "MOCK store"}{result.source === "mock" && !result.relabel ? "; the relabel rule is OFF" : ""}.</p>
             <div className="seg" role="group" aria-label="Filter shown lines by product">
               <button type="button" aria-pressed={product === "all"} onClick={() => setProduct("all")}>All products</button>
               {products.map((p) => <button key={p} type="button" aria-pressed={product === p} onClick={() => setProduct(p)}>{PRODUCT_NAMES[p] || p}</button>)}

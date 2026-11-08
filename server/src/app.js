@@ -8,13 +8,14 @@ import express from 'express';
 import { hostCheck, sameOriginWrites } from './safety.js';
 import { createHealth } from './health.js';
 import { loadCast, verticalFrom, VERTICALS } from './cast.js';
-import { lokiUrlFrom, modeFrom, realAvailableFrom, realProblemFrom } from './config.js';
+import { ES_PORT_FORWARD, SIEM_DEFAULTS, SIEM_SERVICE, kibanaFrom, lokiUrlFrom, modeFrom, realAvailableFrom, realProblemFrom, siemFrom, siemProblemFrom } from './config.js';
 import { buildStory } from './story.js';
 import { DIAGRAM_NAMES, buildDiagram } from './diagramData.js';
 import { RELABEL_RULE } from './logData.js';
 import { INCIDENTS, incidentEvents, queryMock, toIso } from './logStore.js';
 import { QueryError, formatQuery, parseQuery } from './logql.js';
 import { LokiError, createLokiClient } from './lokiClient.js';
+import { SiemError, createSiemClient } from './siemClient.js';
 import { evaluateAlerts } from './alerts.js';
 import { buildQueryHops, newTrace } from './trace.js';
 import { MAX_INJECTED, createWorkspaces, workspaceFrom } from './workspaces.js';
@@ -45,6 +46,9 @@ export function createApp({
   // The runtime mode (rule 19): starts from the launch mode, switches without a restart.
   let mode = modeFrom(env);
   const lokiFor = () => { const base = lokiUrlFrom(env); return base ? createLokiClient({ baseUrl: base }) : null; };
+  const siemFor = () => { const s = siemFrom(env); return s ? createSiemClient({ baseUrl: s.url, index: s.index, apiKey: s.apiKey, timeField: s.timeField }) : null; };
+  // A query goes to the SIEM only when every service it selects is the SIEM's; anything else goes to Loki.
+  const targetsSiem = (q) => q.matchers.some((m) => m.label === 'service' && ((m.op === '=' && m.value === SIEM_SERVICE) || (m.op === '=~' && m.value.split('|').every((v) => v === SIEM_SERVICE))));
 
   const api = express.Router();
   api.use(express.json({ limit: '8kb' }));
@@ -55,7 +59,12 @@ export function createApp({
   api.get('/diagram', (req, res) => { res.set('Cache-Control', 'no-store'); res.json(buildDiagram(castFor(req), DIAGRAM_NAMES.includes(req.query.name) ? req.query.name : DIAGRAM_NAMES[0])); });
   api.get('/info', (_req, res) => {
     res.set('Cache-Control', 'no-store');
-    res.json({ mode, source: mode, simulated: mode === 'mock', realAvailable: realAvailableFrom(env), realHint: realAvailableFrom(env) ? null : realProblemFrom(env) });
+    const siem = siemFrom(env);
+    res.json({
+      mode, source: mode, simulated: mode === 'mock', realAvailable: realAvailableFrom(env), realHint: realAvailableFrom(env) ? null : realProblemFrom(env),
+      // Never the read key: only whether the SIEM settings are usable, why not, which index, and the Kibana link.
+      siem: { service: SIEM_SERVICE, configured: siem !== null, problem: siemProblemFrom(env), index: siem?.index || env.PRIVILEGE_SIEM_INDEX || SIEM_DEFAULTS.index, esPortForward: ES_PORT_FORWARD, kibana: kibanaFrom(env) },
+    });
   });
   // Rule 19: exactly { source: "mock"|"real" }; 409 when Real is not configured.
   api.post('/mode', (req, res) => {
@@ -77,16 +86,25 @@ export function createApp({
   const mockOnly = (res) => res.status(409).json({ error: 'mock_only', detail: 'This control changes the mock stream. Switch to Mock to use it.' });
   const fail = (res, e) => {
     if (e instanceof QueryError) return res.status(400).json({ error: e.code, detail: e.detail });
-    if (e instanceof LokiError) return res.status(e.status).json({ error: e.code, detail: e.detail });
+    if (e instanceof LokiError || e instanceof SiemError) return res.status(e.status).json({ error: e.code, detail: e.detail });
     return res.status(500).json({ error: 'internal_error' });
   };
 
   // One query against the active source. Returns the rows (newest first) plus what the hops panel needs.
-  async function runQuery({ ws, cast, q, windowMs, limit, trace }) {
+  // `lenient`: the alert rules ask about every product, including ones whose source is not set up; that reads as silent, not as an error.
+  async function runQuery({ ws, cast, q, windowMs, limit, trace, lenient = false }) {
     const t = now();
     if (mode === 'real') {
+      if (targetsSiem(q)) {
+        const siem = siemFor();
+        if (!siem) { if (lenient) return { entries: [], truncated: false }; throw new SiemError('siem_not_configured', siemProblemFrom(env), 409); }
+        try {
+          const r = await siem.search({ q, now: t, sinceMs: windowMs, limit });
+          return { entries: r.entries, truncated: r.truncated, backend: 'siem', lokiRequest: r.request, lokiResponse: r.response };
+        } catch (e) { if (lenient && e instanceof SiemError) return { entries: [], truncated: false }; throw e; }
+      }
       const loki = lokiFor();
-      if (!loki) throw new LokiError('real_not_configured', realProblemFrom(env), 409);
+      if (!loki) { if (lenient) return { entries: [], truncated: false }; throw new LokiError('real_not_configured', 'Loki is not configured: set OBS_LOKI_URL (a loopback Loki, e.g. http://127.0.0.1:3100). The Privilege SIEM source needs only its own settings.', 409); }
       const r = await loki.queryRange({ query: q, now: t, sinceMs: windowMs, limit, traceparent: trace ? `00-${trace.traceId}-${trace.span()}-01` : undefined });
       return { entries: r.entries, truncated: r.truncated, lokiRequest: r.request, lokiResponse: r.response };
     }
@@ -95,16 +113,18 @@ export function createApp({
   }
 
   api.get('/logs', withWorkspace(async (ws, req, res) => {
-    const minutes = intParam(req.query.minutes, 30, 1, 30);
     const limit = intParam(req.query.limit, 200, 1, 500);
-    if (minutes === null || limit === null) return res.status(400).json({ error: 'bad_param', detail: 'minutes must be 1-30 and limit 1-500' });
     if (req.query.query !== undefined && typeof req.query.query !== 'string') return res.status(400).json({ error: 'bad_query', detail: 'query must be a single text value' });
     const queryText = req.query.query === undefined ? DEFAULT_QUERY : req.query.query;
     const trace = newTrace(req.headers.traceparent);
     try {
       const q = parseQuery(queryText);
+      // Loki and the mock keep the 30-minute window; the SIEM's events are sparse (admin changes), so it may look back 30 days.
+      const siemWindow = mode === 'real' && targetsSiem(q);
+      const minutes = intParam(req.query.minutes, 30, 1, siemWindow ? 43_200 : 30);
+      if (minutes === null || limit === null) return res.status(400).json({ error: 'bad_param', detail: `minutes must be 1-${siemWindow ? 43200 : 30} and limit 1-500` });
       const r = await runQuery({ ws, cast: castFor(req), q, windowMs: minutes * MIN, limit, trace });
-      const hops = buildQueryHops({ trace, queryText: formatQuery(q), source: mode, count: r.entries.length, lokiRequest: r.lokiRequest, lokiResponse: r.lokiResponse });
+      const hops = buildQueryHops({ trace, queryText: formatQuery(q), source: mode, count: r.entries.length, lokiRequest: r.lokiRequest, lokiResponse: r.lokiResponse, backend: r.backend });
       res.set('traceparent', hops[0].traceparent);
       return res.json({ source: mode, query: formatQuery(q), count: r.entries.length, truncated: r.truncated, entries: r.entries.map(toIso), workspace: ws, relabel: workspaces.state(ws).relabel, traceId: trace.traceId, hops });
     } catch (e) { return fail(res, e); }
@@ -113,7 +133,7 @@ export function createApp({
   api.get('/alerts', withWorkspace(async (ws, req, res) => {
     const cast = castFor(req);
     try {
-      const rules = await evaluateAlerts({ fetch: async ({ query, windowMs }) => (await runQuery({ ws, cast, q: query, windowMs, limit: 1000 })).entries });
+      const rules = await evaluateAlerts({ fetch: async ({ query, windowMs }) => (await runQuery({ ws, cast, q: query, windowMs, limit: 1000, lenient: true })).entries });
       return res.json({ source: mode, rules, workspace: ws });
     } catch (e) { return fail(res, e); }
   }));
