@@ -50,7 +50,7 @@ test('Real mode alerts are computed over Loki lines with the same rules', async 
       assert.equal(j.source, 'real');
       const by = Object.fromEntries(j.rules.map((r) => [r.id, r]));
       assert.equal(by.ProductLogSilence.state, 'firing', 'pingfederate and pingone-webhook returned nothing');
-      assert.deepEqual(by.ProductLogSilence.evidence.silentServices.sort(), ['agentless-mcpgw', 'authz-server', 'gateway-events', 'llm-proxy', 'mcp-gateway', 'mcp-promptguard', 'mcp-server', 'ping-mcpgw', 'pingfederate', 'pingone-webhook', 'procyon-nodesensor']);
+      assert.deepEqual(by.ProductLogSilence.evidence.silentServices.sort(), ['agentless-mcpgw', 'authz-server', 'gateway-events', 'llm-proxy', 'mcp-gateway', 'mcp-promptguard', 'mcp-server', 'ping-mcpgw', 'pingfederate', 'pingone-webhook', 'privilege-siem', 'procyon-nodesensor']);
     }, { now: () => NOW, env: { OBS_LOKI_URL: loki.base } });
   } finally { await loki.close(); }
 });

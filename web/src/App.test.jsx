@@ -66,6 +66,59 @@ function mockFetch() {
 beforeEach(() => { override = {}; mockFetch(); window.location.hash = ""; });
 const ready = async () => { render(<App />); await screen.findByText("Follow one sign-in"); await screen.findByTestId("log-table"); };
 
+describe("Privilege SIEM: Kibana link and the look-back window", () => {
+  const SIEM = { service: "privilege-siem", configured: false, problem: "Set PRIVILEGE_SIEM_URL to a loopback Elasticsearch.", index: "ping-siem-events-v2", esPortForward: "kubectl port-forward svc/elasticsearch-siem 9200:9200",
+    kibana: { url: "http://localhost:5601", deepLink: "http://localhost:5601/app/discover#/?_a=(dataSource:(dataViewId:'privilege-logs',type:dataView))&_g=(time:(from:now-30d,to:now))", portForward: "kubectl --context us -n ping-devops-curtismuir port-forward svc/kibana-siem 5601:5601", settingValid: true } };
+  const WITH_PRIVILEGE = { ...STORY, products: [...STORY.products, { id: "phosted", name: "Privilege hosted gateway", service: "agentless-mcpgw", container: "/c", how: "h", sources: [] }, { id: "psiem", name: "Privilege SIEM", service: "privilege-siem", container: "/c2", how: "h2", sources: [] }] };
+  const infoWith = (over = {}) => () => ({ ok: true, status: 200, json: async () => ({ mode: state.mode, source: state.mode, simulated: state.mode === "mock", realAvailable: true, realHint: null, siem: SIEM, ...over }) });
+
+  it("the Products tab links each Privilege product to Kibana and shows the tunnel command; other products get no link", async () => {
+    override["/api/scenarios"] = () => ({ ok: true, status: 200, json: async () => WITH_PRIVILEGE });
+    override["/api/info"] = infoWith();
+    const user = userEvent.setup();
+    await ready();
+    await user.click(screen.getByRole("tab", { name: "Products" }));
+    const hosted = await screen.findByTestId("product-phosted");
+    const link = within(hosted).getByRole("link", { name: "Open in Kibana (Privilege logs)" });
+    expect(link).toHaveAttribute("href", SIEM.kibana.deepLink);
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    expect(within(hosted).getByText(SIEM.kibana.portForward)).toBeInTheDocument();
+    expect(within(screen.getByTestId("product-pingfederate")).queryByTestId("kibana-link")).toBeNull();
+    const siem = screen.getByTestId("product-psiem");
+    expect(within(siem).getByTestId("siem-setup")).toHaveTextContent("Real is not set up for this source: Set PRIVILEGE_SIEM_URL");
+  });
+
+  it("a configured SIEM says it is read-only and which query to ask", async () => {
+    override["/api/scenarios"] = () => ({ ok: true, status: 200, json: async () => WITH_PRIVILEGE });
+    override["/api/info"] = infoWith({ siem: { ...SIEM, configured: true, problem: null } });
+    const user = userEvent.setup();
+    await ready();
+    await user.click(screen.getByRole("tab", { name: "Products" }));
+    expect(await screen.findByTestId("siem-setup")).toHaveTextContent('Real reads ping-siem-events-v2 read-only. Ask for {service="privilege-siem"}.');
+  });
+
+  it("in Real, a SIEM query offers a look-back window and sends it; other queries do not", async () => {
+    state.mode = "real";
+    override["/api/info"] = infoWith();
+    const user = userEvent.setup();
+    await ready();
+    expect(screen.queryByTestId("siem-window")).toBeNull();
+    const input = screen.getByLabelText("LogQL-lite query");
+    await user.clear(input);
+    await user.type(input, '{{service="privilege-siem"}');
+    await user.click(screen.getByTestId("run"));
+    const select = await screen.findByTestId("siem-window");
+    expect(screen.getByTestId("count")).toHaveTextContent("from the REAL Privilege SIEM (Elasticsearch)");
+    const before = calls.length;
+    await user.selectOptions(select, "10080");
+    await waitFor(() => expect(calls.slice(before).some((c) => decodeURIComponent(c.url).includes("privilege-siem") && c.url.includes("minutes=10080"))).toBe(true));
+    await user.clear(input);
+    await user.type(input, '{{service="pingfederate"}');
+    await user.click(screen.getByTestId("run"));
+    await waitFor(() => expect(screen.queryByTestId("siem-window")).toBeNull());
+  });
+});
+
 describe("log lines open on click", () => {
   it("a line expands to show its details and collapses again; the table keeps its rows", async () => {
     const user = userEvent.setup();

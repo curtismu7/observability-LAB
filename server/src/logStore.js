@@ -1,7 +1,7 @@
-// The mock log store: a seeded, deterministic stream for the twelve sources, replayed relative to "now" so the
+// The mock log store: a seeded, deterministic stream for the thirteen sources, replayed relative to "now" so the
 // last 30 minutes are always populated, plus incidents injected per workspace. Messages keep {{cast}} tokens until read.
 // Pure: no I/O, no clock of its own (now is passed in).
-import { PRODUCTS } from './logData.js';
+import { SIEM_SOURCES, PRODUCTS } from './logData.js';
 import { fillDeep } from './cast.js';
 import { matchesQuery } from './logql.js';
 
@@ -123,6 +123,16 @@ function buildBaseline() {
     push(at, 'authz', 'decision-text', 'info', '[cid=<correlation-id>] [AuthzServer/decision] policy=mcp-gateway ctx=McpToolsList tool=(none) sub=<user-id> actor=(none) aud=<audience> exp=(none) scopes=[gateway:mcp:invoke] hitlApproved=false');
     push(at - 1, 'authz', 'decision-json', 'info', doc({ evt: 'authz_decision', decision: 'PERMIT', reason: 'tool discovery permitted (per-tool)', correlationId: '<correlation-id>', decisionContext: 'McpToolsList', tool: null, sub: '<user-id>', actor: null, workerId: 'mcp-gateway', scopes: ['gateway:mcp:invoke'], rarPresent: false, hitlApproved: false, decisionId: '<decision-id>', policyVersion: 'mock-v1' }));
   }
+  // The Privilege SIEM (Elasticsearch): a recorded sample with placeholders only. Console changes are rare, runtime events steady.
+  const siem = (index, kind, data) => doc({ Index: index, privilege_event_kind: kind, '@timestamp': '<time>', Data: data });
+  for (let i = 0; i < 4; i++) push(i * 7 * MIN + 90_000, 'psiem', 'audit-log', 'info', siem('audit-log', 'console', { Action: '<action>', Object: '<object>', User: '<admin-user>' }));
+  for (let i = 0; i < 6; i++) push(i * 4 * MIN + 35_000, 'psiem', 'proxy-audit-log', 'info', siem('proxy-audit-log', 'runtime', { Method: 'POST', Path: '/<app>/mcp', Status: 200 }));
+  for (let i = 0; i < 10; i++) {
+    const deny = i === 3 || i === 8;
+    push(i * 2.5 * MIN + 12_000, 'psiem', 'policy-decision-log', deny ? 'warn' : 'info', siem('policy-decision-log', 'runtime', { User: '<user-id>', AgentKey: '<masked-key>', Target: deny ? 'get_sensitive_account_details' : 'get_weather', Decision: deny ? 'Deny' : 'Allow', Reason: '<reason>', PolicyIDs: ['<policy-id>'] }));
+  }
+  for (let i = 0; i < 3; i++) push(i * 9 * MIN + 70_000, 'psiem', 'aiguard-log', 'info', siem('aiguard-log', 'runtime', { Category: '<category>', Direction: '<direction>' }));
+  for (let i = 0; i < 2; i++) push(i * 12 * MIN + 100_000, 'psiem', 'agent-approval-log', 'info', siem('agent-approval-log', 'runtime', { Agent: '<agent>', Decision: '<decision>' }));
   for (let i = 0; i < 15; i++) push(i * 2 * MIN + 15_000, 'mcp', 'gw-lines', 'info', `[GW] authz warm: ok ${20 + ((i * 7) % 25)}ms (http://authz.example:9001)`);
   return out.sort((a, b) => b.offsetMs - a.offsetMs).map((e, i) => ({ ...e, id: `base-${String(i).padStart(4, '0')}` }));
 }
@@ -157,7 +167,7 @@ export function snapshot({ now, cast, state }) {
     const service = serviceLabel(e.product, state.relabel);
     return fillDeep({
       id: e.id, ts: e.ts, product: e.product, source: e.source, level: e.level, message: e.message, traceId: e.traceId,
-      service, labels: { service, source: e.source, level: e.level },
+      service, labels: { service, source: e.source, level: e.level, ...(e.product === 'psiem' && SIEM_SOURCES[e.source] ? { kind: SIEM_SOURCES[e.source].kind, index: e.source } : {}) },
     }, cast);
   });
 }

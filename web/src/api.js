@@ -25,4 +25,4 @@ export const setMode = (source) => postJson("/api/mode", { source });
 export const simulate = (name) => postJson("/api/incident", { name });
 export const setRelabel = (enabled) => postJson("/api/relabel", { enabled });
 export const resetWorkspace = () => workspaceFetch("/api/reset", { method: "POST", body: "{}" }).then((r) => r.ok);
-export const queryLogs = (query, limit = 200) => getJson(`/api/logs?query=${encodeURIComponent(query)}&limit=${limit}`);
+export const queryLogs = (query, limit = 200, minutes) => getJson(`/api/logs?query=${encodeURIComponent(query)}&limit=${limit}${minutes ? `&minutes=${minutes}` : ""}`);

@@ -13,7 +13,33 @@ export function Facts({ facts }) {
   );
 }
 
-export default function Products({ story }) {
+// The Privilege products share one Kibana data view for the SIEM events. The link is an anchor to the origin the owner set (default the
+// usual port-forward); the lab never calls it.
+const PRIVILEGE_PRODUCTS = new Set(["privilege", "pgateway", "phosted", "pevents", "pguard", "psiem"]);
+
+function KibanaLink({ siem }) {
+  if (!siem?.kibana) return null;
+  return (
+    <p className="kibana" data-testid="kibana-link">
+      <a href={siem.kibana.deepLink} target="_blank" rel="noopener noreferrer">Open in Kibana (Privilege logs)</a>{" "}
+      <span className="muted">Needs the tunnel: <code>{siem.kibana.portForward}</code></span>
+      {!siem.kibana.settingValid && <span className="muted"> PRIVILEGE_KIBANA_URL is not usable, so the default is shown.</span>}
+    </p>
+  );
+}
+
+function SiemSetup({ siem }) {
+  if (!siem) return null;
+  return (
+    <p className="muted" data-testid="siem-setup">
+      {siem.configured
+        ? <>Real reads <code>{siem.index}</code> read-only. Ask for <code>{`{service="${siem.service}"}`}</code>.</>
+        : <>Real is not set up for this source: {visible(siem.problem)} Mock shows the recorded sample.</>}
+    </p>
+  );
+}
+
+export default function Products({ story, info }) {
   return (
     <div className="products">
       <p className="muted">Each product logs differently. Line shapes are illustrative unless a source is named; the status tag says which.</p>
@@ -26,6 +52,8 @@ export default function Products({ story }) {
               <dt>Service label</dt><dd><code>{p.service}</code></dd>
               <dt>Container name</dt><dd><code>{p.container}</code></dd>
             </dl>
+            {PRIVILEGE_PRODUCTS.has(p.id) && <KibanaLink siem={info?.siem} />}
+            {p.id === "psiem" && <SiemSetup siem={info?.siem} />}
             {p.sources.map((s) => (
               <div key={s.id} className="source">
                 <h3>{s.title} <span className={STATUS_CLASS[s.status] || "tag"}>{s.status}</span></h3>

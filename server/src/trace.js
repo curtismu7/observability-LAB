@@ -20,15 +20,15 @@ export function newTrace(incoming, rand = randomBytes) {
 }
 
 // The two hops of one query with raw request/response text. `real` = a Loki round trip happened; else the store is in-process.
-export function buildQueryHops({ trace, queryText, source, count, lokiRequest, lokiResponse, error }) {
+export function buildQueryHops({ trace, queryText, source, count, lokiRequest, lokiResponse, error, backend = 'loki' }) {
   const a = trace.span(); const b = trace.span();
   const tp = (id) => formatTraceparent(trace.traceId, id);
   return [
     { n: 1, from: 'browser', to: 'lab', label: 'The page asks the lab for log lines', traceparent: tp(a),
       request: `GET /api/logs?query=${encodeURIComponent(queryText).slice(0, 300)}\ntraceparent: ${tp(a)}`, response: error ? `error: ${error}` : `200 OK: ${count} line(s), source=${source}` },
     source === 'real'
-      ? { n: 2, from: 'lab', to: 'loki', label: 'The lab asks Loki (read-only, loopback)', traceparent: tp(b),
-        request: `${lokiRequest.method} ${lokiRequest.path.slice(0, 400)}\nHost: ${lokiRequest.host}\ntraceparent: ${tp(b)}`, response: lokiResponse ? `HTTP ${lokiResponse.status}: ${lokiResponse.streams} stream(s), ${lokiResponse.bytes} bytes` : `error: ${error}` }
+      ? { n: 2, from: 'lab', to: backend === 'siem' ? 'elasticsearch' : 'loki', label: backend === 'siem' ? 'The lab asks the SIEM Elasticsearch (read-only search, loopback)' : 'The lab asks Loki (read-only, loopback)', traceparent: tp(b),
+        request: `${lokiRequest.method} ${lokiRequest.path.slice(0, 400)}\nHost: ${lokiRequest.host}\ntraceparent: ${tp(b)}`, response: lokiResponse ? `HTTP ${lokiResponse.status}: ${backend === 'siem' ? `${lokiResponse.hits} hit(s)` : `${lokiResponse.streams} stream(s)`}, ${lokiResponse.bytes} bytes` : `error: ${error}` }
       : { n: 2, from: 'lab', to: 'mock-store', label: 'The lab asks the MOCK store (in-process, no network)', traceparent: tp(b),
         request: `matchQuery(${queryText.slice(0, 300)})\ntraceparent: ${tp(b)}`, response: `${count} line(s) from the seeded stream (MOCK)` },
   ];

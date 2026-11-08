@@ -141,7 +141,7 @@ export default function App() {
                 </aside>
               )}
               {tab === "logs" && <LogStream key={vertical} story={story} info={info} dataSignal={dataSignal} requestedId={requested} onSelect={pickScenario} onChanged={bump} />}
-              {tab === "products" && <Products story={story} />}
+              {tab === "products" && <Products story={story} info={info} />}
               {tab === "pipeline" && <DiagramTab vertical={vertical} resetSignal={dataSignal} />}
               {tab === "label" && <LabelLab story={story} info={info} dataSignal={dataSignal} onChanged={bump} />}
               {tab === "alerts" && <Alerts info={info} dataSignal={dataSignal} onChanged={bump} />}
