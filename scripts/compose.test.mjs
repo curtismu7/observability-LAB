@@ -87,7 +87,11 @@ test('Privilege sources: stdout containers are filtered by exact name, the gatew
   assert.match(alloy, /\(\?:ai-demo-\)\?/, 'service drops the ai-demo- prefix, as AI-DEMO2 does');
   assert.match(alloy, /tail_from_end = true/, 'the gateway file holds days of history; only new lines are shipped');
   assert.match(alloy, /stage\.match[\s\S]*action\s*=\s*"drop"/, 'lines outside the four modelled families are dropped');
-  assert.match(alloy, /Error receiving from the stream\|\\\\\[SERVER\\\\\]/, 'the [SERVER] request lines (User-Agent, Remote Addr) are kept');
+  assert.match(alloy, /Error receiving from the stream\|\[\[\]SERVER\[\]\]/, 'the [SERVER] request lines (User-Agent, Remote Addr) are kept');
+  // Alloy hands the selector to LogQL after River unescapes it, so any backslash other than \" breaks the load (measured 2026-11-08:
+  // "invalid char escape", container exits). Square brackets are matched with character classes instead.
+  const selector = /selector\s*=\s*"((?:[^"\\]|\\.)*)"/.exec(alloy.split('loki.process "privilege"')[1])[1];
+  assert.doesNotMatch(selector.replace(/\\"/g, ''), /\\/, 'no backslash escapes inside the match selector');
   assert.match(alloy, /older_than\s*=\s*"15m"/, 'a restart does not replay old container history into Loki');
   const priv = here('docker-compose.privilege.yml');
   assert.match(priv, /privilege-logs:\/privilege-logs:ro/, 'the gateway log volume is mounted read-only');
