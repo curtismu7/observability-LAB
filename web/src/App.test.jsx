@@ -34,6 +34,7 @@ function mockFetch() {
     if (custom) return custom(url, opts);
     if (url.startsWith("/api/scenarios")) return json(STORY);
     if (url === "/api/info") return json({ mode: state.mode, source: state.mode, simulated: state.mode === "mock", realAvailable: state.realAvailable, realHint: state.realAvailable ? null : "Real needs OBS_LOKI_URL" });
+    if (url === "/api/shelf") return json({ shelfUrl: state.shelf ?? null });
     if (url === "/api/mode") {
       const b = JSON.parse(opts.body);
       if (b.source === "real" && !state.realAvailable) return json({ error: "real_not_configured", detail: "Real needs OBS_LOKI_URL" }, 409);
@@ -65,6 +66,18 @@ function mockFetch() {
 }
 beforeEach(() => { override = {}; mockFetch(); window.location.hash = ""; });
 const ready = async () => { render(<App />); await screen.findByText("Follow one sign-in"); await screen.findByTestId("log-table"); };
+
+describe("Shelf button", () => {
+  it("shows a link to the shelf when /api/shelf has a URL", async () => {
+    state.shelf = "https://shelf.example:8443";
+    await ready();
+    expect(await screen.findByRole("link", { name: "Shelf" })).toHaveAttribute("href", "https://shelf.example:8443");
+  });
+  it("shows no Shelf link without a shelf URL", async () => {
+    await ready();
+    expect(screen.queryByRole("link", { name: "Shelf" })).toBeNull();
+  });
+});
 
 describe("Privilege SIEM: Kibana link and the look-back window", () => {
   const SIEM = { service: "privilege-siem", configured: false, problem: "Set PRIVILEGE_SIEM_URL to a loopback Elasticsearch.", index: "ping-siem-events-v2", esPortForward: "kubectl port-forward svc/elasticsearch-siem 9200:9200",

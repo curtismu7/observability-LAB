@@ -12,6 +12,7 @@ services:
     environment:
       PORT: "7800"
       OBS_BIND: 0.0.0.0
+      SHELF_URL: ${SHELF_URL:-http://127.0.0.1:4400}
       LAB_ALLOWED_HOSTS: ${LAB_ALLOWED_HOSTS:-observability-lab.local.ping-devops.com}
       # Start mode. The image sets MODE=mock; this replaces it with OBS_MODE, empty when unset, and an empty MODE means "Real when
       # the Real settings below are usable, else Mock". OBS_MODE=mock or OBS_MODE=real forces one (real is refused if unconfigured).

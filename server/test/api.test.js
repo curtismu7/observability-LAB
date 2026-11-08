@@ -173,3 +173,12 @@ test('query and numeric parameters are strict: repeated or nested query, exponen
     assert.equal((await fetch(`${url}/api/logs?limit=7&minutes=5`)).status, 200);
   });
 });
+
+test('GET /api/shelf returns SHELF_URL (slash trimmed) with no web build; POST is not 200', async () => {
+  await withServer(async (url) => {
+    const r = await fetch(`${url}/api/shelf`);
+    assert.equal(r.status, 200);
+    assert.deepEqual(await J(r), { shelfUrl: 'https://shelf.example:8443' });
+    assert.notEqual((await post(url, '/api/shelf', {})).status, 200);
+  }, { env: { SHELF_URL: 'https://shelf.example:8443/', HOME: '/nonexistent' } });
+});

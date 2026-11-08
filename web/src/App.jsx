@@ -5,6 +5,7 @@ import LabelLab from "./components/LabelLab";
 import Alerts from "./components/Alerts";
 import DiagramTab from "./components/DiagramTab";
 import TalkTrack from "./components/TalkTrack";
+import ShelfLink from "./components/ShelfLink";
 import Searches from "./components/Searches";
 import { getJson, resetWorkspace, setMode } from "./api";
 
@@ -104,6 +105,7 @@ export default function App() {
             {!presenter && story && <p className="intro">{story.intro}</p>}
           </div>
           <div className="head__tools">
+            <ShelfLink />
             <span className="chip" data-testid="mode">Mode: {info ? info.mode : "..."}</span>
             {info && (
               <div className="seg" role="group" aria-label="Data source" data-testid="mode-toggle">
