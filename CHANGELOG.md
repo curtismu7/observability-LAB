@@ -2,6 +2,7 @@
 
 ## 0.1.0 (unreleased)
 
+- Changed: on the Logs tab the product filter is now a "Ping products" dropdown, like the shelf's. It lists the products in the current result with their line counts, Ping products (PingOne, PingFederate, Ping Gateway and the Privilege family) apart from other services (the AI-DEMO2 banking MCP server, LLM proxy and so on), and uses the lab's own product names, so the Privilege sources no longer show as raw ids such as `pgateway`.
 - Fixed: `docker compose up` always started in Mock because the image sets `MODE=mock`. Compose now passes `MODE: ${OBS_MODE:-}`, so with `OBS_MODE` unset the lab starts in Real when Real is configured and in Mock otherwise.
 - Changed: the port-forward hints show `<your-context>` and `<your-namespace>` unless `OBS_KUBE_CONTEXT` and `OBS_KUBE_NAMESPACE` are set (validated names; anything else keeps the placeholder).
 
