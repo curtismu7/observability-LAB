@@ -5,6 +5,7 @@ name: observability-lab
 
 services:
   observability-lab:
+    restart: unless-stopped
     build: .
     ports:
       - "127.0.0.1:${HOST_PORT:-7800}:7800"
@@ -47,6 +48,7 @@ services:
   # loopback Loki URLs) and NO extra host port is published. Nothing here has an outbound network use: Loki
   # analytics and Alloy reporting are off.
   loki:
+    restart: unless-stopped
     image: grafana/loki:3.3.2
     profiles: ["stack"]
     network_mode: "service:observability-lab"
@@ -63,6 +65,7 @@ services:
   # Reads the lab-proxy's stdout through the Docker socket, mounted read-only (as AI-DEMO2's collector does):
   # it can list containers and read their logs, nothing else.
   alloy:
+    restart: unless-stopped
     image: grafana/alloy:v1.19.2
     profiles: ["stack"]
     network_mode: "service:observability-lab"
@@ -83,6 +86,7 @@ services:
   # the Elasticsearch port-forward runs. A plain TCP relay with no options for logging (no -v/-d): the key passes through in the request
   # header like any HTTP hop and is never printed. It publishes no host port.
   siem-forwarder:
+    restart: unless-stopped
     image: alpine/socat:1.8.1.1
     profiles: ["siem"]
     network_mode: "service:observability-lab"
