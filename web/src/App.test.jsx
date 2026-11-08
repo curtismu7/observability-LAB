@@ -498,6 +498,18 @@ describe("Searches tab", () => {
     expect(calls.some((c) => String(c.url).includes("kibana"))).toBe(false);
   });
 
+  it("the PingOne Events index has ES|QL searches that open Discover in ES|QL mode on the configured origin", async () => {
+    const { user, tab } = await open();
+    const card = within(within(tab).getByTestId("search-group-pingone-events")).getByTestId("search-pe-latest");
+    const esql = "FROM pingone-events | SORT @timestamp DESC | LIMIT 50";
+    expect(within(card).getByTestId("esql")).toHaveTextContent(esql);
+    const run = within(card).getByRole("link", { name: "Run Latest events in Discover" });
+    expect(run.getAttribute("href")).toBe("https://kibana.example:5601/app/discover#/?_g=(time:(from:now-24h,to:now))&_a=(query:(esql:" + encodeURIComponent("'" + esql + "'") + "))");
+    expect(run).toHaveAttribute("rel", "noopener noreferrer");
+    await user.click(within(card).getByRole("button", { name: "Copy the query Latest events" }));
+    expect(await navigator.clipboard.readText()).toBe(esql);
+  });
+
   it("Real has no Mock note", async () => {
     const { tab } = await open("real");
     expect(within(tab).queryByTestId("searches-mock-note")).toBeNull();

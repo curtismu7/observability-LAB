@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { SEARCH_GROUPS, SearchInputError, buildKql, discoverUrl, kqlString, rison, searchRunUrl, MAX_INPUT, PINGONE_SERVICES, PRODUCTS, optionOf } from '../src/searches.js';
+import { ESQL_SEARCHES, SEARCH_GROUPS, SearchInputError, esqlUrl, buildKql, discoverUrl, kqlString, rison, searchRunUrl, MAX_INPUT, PINGONE_SERVICES, PRODUCTS, optionOf } from '../src/searches.js';
 import { kibanaFrom, labLinksFrom, rison as configRison, siemFrom } from '../src/config.js';
 import { createApp } from '../src/app.js';
 
@@ -105,4 +105,16 @@ test('/api/info carries the lab links and never the read key', async () => {
     assert.equal(j.labLinks.fieldNotes.url, 'http://127.0.0.1:7904');
     assert.equal(j.siem.kibana.securityAlerts, 'http://localhost:5601/app/security/alerts');
   } finally { server.close(); }
+});
+
+test('ES|QL links: Discover on the origin, the query as one Rison string in _a, last 24 hours; every search reads only pingone-events', () => {
+  assert.equal(esqlUrl('http://localhost:5601', 'FROM pingone-events | LIMIT 5'),
+    "http://localhost:5601/app/discover#/?_g=(time:(from:now-24h,to:now))&_a=(query:(esql:" + encodeURIComponent("'FROM pingone-events | LIMIT 5'") + "))");
+  assert.ok(esqlUrl('http://k', "x'y!z").endsWith("esql:'x!'y!!z'))"), 'a quote and a bang are Rison-escaped');
+  assert.equal(new Set(ESQL_SEARCHES.map((s) => s.id)).size, ESQL_SEARCHES.length);
+  for (const s of ESQL_SEARCHES) {
+    assert.ok(s.title && s.question, s.id);
+    assert.match(s.esql, /^FROM pingone-events( \||$)/, s.id);
+    assert.ok(!all.some((x) => x.id === s.id), 'ids do not clash with the KQL searches');
+  }
 });
