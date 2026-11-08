@@ -2,6 +2,9 @@
 
 ## 0.1.0 (unreleased)
 
+- Fixed: `docker compose up` always started in Mock because the image sets `MODE=mock`. Compose now passes `MODE: ${OBS_MODE:-}`, so with `OBS_MODE` unset the lab starts in Real when Real is configured and in Mock otherwise.
+- Changed: the port-forward hints show `<your-context>` and `<your-namespace>` unless `OBS_KUBE_CONTEXT` and `OBS_KUBE_NAMESPACE` are set (validated names; anything else keeps the placeholder).
+
 - Added: the Pipeline tab shows the paths that now exist besides the mock Loki path: Privilege hosted gateway and console to the Privilege SIEM export and the Privilege logs bridge (decisions, AI Guard, approvals) into `ping-siem-events-v2`; a Vector collector on local Docker reading PingFederate, PingGateway and the Privilege agent gateway into `ping-logs-*` (noise tagged, secrets masked); the PingOne webhook subscription through pingone-events-LAB into `ping-logs-pingone`; Elasticsearch to Kibana; and this lab reading the Privilege index through the loopback forwarder and linking into Kibana. 11 new boxes and 14 new Simulate steps (21 and 21); each new box has a one-line description and its honesty label (measured live 2026-11-08, or for PingOne: being switched on, not measured yet).
 - Changed: the Searches tab PingOne service select uses the `ping_component` values the Elasticsearch pipeline writes (sso, mfa, davinci, authorize, protect, verify, credentials, directory, governance, provisioning, admin-config, other) with readable labels.
 

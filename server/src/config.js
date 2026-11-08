@@ -41,8 +41,24 @@ export function modeFrom(env = process.env) {
 // present and valid is ever reported, never its value.
 export const SIEM_DEFAULTS = { index: 'ping-siem-events-v2', timeField: '@timestamp', kibana: 'http://localhost:5601' };
 export const SIEM_SERVICE = 'privilege-siem';
-export const KIBANA_PORT_FORWARD = 'kubectl --context us -n ping-devops-curtismuir port-forward svc/kibana-siem 5601:5601';
-export const ES_PORT_FORWARD = 'kubectl --context us -n ping-devops-curtismuir port-forward svc/elasticsearch-siem 9200:9200';
+// The kubectl port-forward commands the hints show. The repo carries placeholders; YOUR context and namespace come from the optional
+// OBS_KUBE_CONTEXT and OBS_KUBE_NAMESPACE settings (a plain name of 1 to 63 letters, digits, dots, underscores or dashes; anything
+// else falls back to the placeholder). Hints only: the lab never runs kubectl.
+export const KUBE_PLACEHOLDERS = { context: '<your-context>', namespace: '<your-namespace>' };
+const KUBE_NAME = /^[A-Za-z0-9._-]{1,63}$/;
+const kubeName = (raw, fallback) => (typeof raw === 'string' && KUBE_NAME.test(raw) ? raw : fallback);
+export function kubeFrom(env = process.env) {
+  return { context: kubeName(env.OBS_KUBE_CONTEXT, KUBE_PLACEHOLDERS.context), namespace: kubeName(env.OBS_KUBE_NAMESPACE, KUBE_PLACEHOLDERS.namespace) };
+}
+const portForward = (svc, port) => (env = process.env) => {
+  const { context, namespace } = kubeFrom(env);
+  return `kubectl --context ${context} -n ${namespace} port-forward svc/${svc} ${port}:${port}`;
+};
+export const kibanaPortForwardFrom = portForward('kibana-siem', 5601);
+export const esPortForwardFrom = portForward('elasticsearch-siem', 9200);
+// The repo defaults (placeholders), as shown when neither setting is given.
+export const KIBANA_PORT_FORWARD = kibanaPortForwardFrom({});
+export const ES_PORT_FORWARD = esPortForwardFrom({});
 const INDEX = /^[a-z0-9][a-z0-9._-]{0,60}$/;
 const FIELD = /^[A-Za-z@_][A-Za-z0-9@_.-]{0,40}$/;
 const KEY = /^[A-Za-z0-9+/=_:-]{8,512}$/;
@@ -69,7 +85,7 @@ export function siemFrom(env = process.env) {
 
 // Why the SIEM source is unavailable, in words an operator can act on. null when it is usable.
 export function siemProblemFrom(env = process.env) {
-  if (!env.PRIVILEGE_SIEM_URL) return `Set PRIVILEGE_SIEM_URL to a loopback Elasticsearch (a port-forward: ${ES_PORT_FORWARD}), plus PRIVILEGE_SIEM_READ_APIKEY (a read key limited to the index; the owner creates it).`;
+  if (!env.PRIVILEGE_SIEM_URL) return `Set PRIVILEGE_SIEM_URL to a loopback Elasticsearch (a port-forward: ${esPortForwardFrom(env)}), plus PRIVILEGE_SIEM_READ_APIKEY (a read key limited to the index; the owner creates it).`;
   if (!plainOrigin(env.PRIVILEGE_SIEM_URL, { loopbackOnly: true })) return 'PRIVILEGE_SIEM_URL must be a plain http(s) URL on loopback (127.0.0.1 or localhost) with no credentials and no path.';
   if (!INDEX.test(env.PRIVILEGE_SIEM_INDEX || SIEM_DEFAULTS.index)) return 'PRIVILEGE_SIEM_INDEX is not a valid index name.';
   if (!FIELD.test(env.PRIVILEGE_SIEM_TIME_FIELD || SIEM_DEFAULTS.timeField)) return 'PRIVILEGE_SIEM_TIME_FIELD is not a valid field name.';
@@ -128,7 +144,7 @@ export function kibanaFrom(env = process.env) {
     links: KIBANA_LINKS.map(({ path, discoverView, ...l }) => ({ ...l, url: discoverView ? discoverUrl(origin, discoverView) : `${origin}${path}` })),
     securityAlerts: `${origin}${SECURITY_ALERTS_PATH}`,
     fieldNotes: KIBANA_FIELD_NOTES,
-    portForward: KIBANA_PORT_FORWARD,
+    portForward: kibanaPortForwardFrom(env),
     settingValid: !env.PRIVILEGE_KIBANA_URL || configured !== null,
   };
 }

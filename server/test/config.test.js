@@ -25,3 +25,22 @@ test('only a plain loopback http(s) Loki URL counts: no remote host, credentials
   assert.match(realProblemFrom({ OBS_LOKI_URL: 'http://loki.example:3100' }), /loopback/);
   assert.equal(realProblemFrom({ OBS_LOKI_URL: 'http://127.0.0.1:3100' }), null);
 });
+
+test('port-forward hints: placeholders by default, valid OBS_KUBE_* values appear, invalid ones fall back', async () => {
+  const { ES_PORT_FORWARD, KIBANA_PORT_FORWARD, KUBE_PLACEHOLDERS, esPortForwardFrom, kibanaFrom, kibanaPortForwardFrom, kubeFrom, siemProblemFrom } = await import('../src/config.js');
+  assert.deepEqual(KUBE_PLACEHOLDERS, { context: '<your-context>', namespace: '<your-namespace>' });
+  assert.equal(KIBANA_PORT_FORWARD, 'kubectl --context <your-context> -n <your-namespace> port-forward svc/kibana-siem 5601:5601');
+  assert.equal(ES_PORT_FORWARD, 'kubectl --context <your-context> -n <your-namespace> port-forward svc/elasticsearch-siem 9200:9200');
+  assert.equal(esPortForwardFrom({}), ES_PORT_FORWARD);
+  assert.equal(kibanaFrom({}).portForward, KIBANA_PORT_FORWARD);
+  const env = { OBS_KUBE_CONTEXT: 'ctx-a.b_1', OBS_KUBE_NAMESPACE: 'ns-x' };
+  assert.equal(kibanaPortForwardFrom(env), 'kubectl --context ctx-a.b_1 -n ns-x port-forward svc/kibana-siem 5601:5601');
+  assert.equal(esPortForwardFrom(env), 'kubectl --context ctx-a.b_1 -n ns-x port-forward svc/elasticsearch-siem 9200:9200');
+  assert.equal(kibanaFrom(env).portForward, kibanaPortForwardFrom(env));
+  assert.ok(siemProblemFrom(env).includes(esPortForwardFrom(env)), 'the SIEM hint shows the same command');
+  assert.deepEqual(kubeFrom({ OBS_KUBE_CONTEXT: 'only-ctx' }), { context: 'only-ctx', namespace: '<your-namespace>' });
+  for (const bad of ['', ' ', 'a b', 'x;rm -rf /', '$(id)', '`id`', 'a/b', 'ctx\n', '<x>', 'é', 'a'.repeat(64), 42]) {
+    assert.deepEqual(kubeFrom({ OBS_KUBE_CONTEXT: bad, OBS_KUBE_NAMESPACE: bad }), KUBE_PLACEHOLDERS, JSON.stringify(bad));
+  }
+  assert.equal(kubeFrom({ OBS_KUBE_CONTEXT: 'a'.repeat(63) }).context, 'a'.repeat(63));
+});

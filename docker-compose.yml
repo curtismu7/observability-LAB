@@ -12,6 +12,9 @@ services:
       PORT: "7800"
       OBS_BIND: 0.0.0.0
       LAB_ALLOWED_HOSTS: ${LAB_ALLOWED_HOSTS:-observability-lab.local.ping-devops.com}
+      # Start mode. The image sets MODE=mock; this replaces it with OBS_MODE, empty when unset, and an empty MODE means "Real when
+      # the Real settings below are usable, else Mock". OBS_MODE=mock or OBS_MODE=real forces one (real is refused if unconfigured).
+      MODE: ${OBS_MODE:-}
       # Real mode reads this Loki, read-only, loopback only. Empty = Real stays disabled. With the stack profile, run:
       #   OBS_LOKI_URL=http://127.0.0.1:3100 docker compose --profile stack up -d
       OBS_LOKI_URL: ${OBS_LOKI_URL:-}
@@ -25,6 +28,9 @@ services:
       PRIVILEGE_KIBANA_URL: ${PRIVILEGE_KIBANA_URL:-}
       PRIVILEGE_LOGGING_LAB_URL: ${PRIVILEGE_LOGGING_LAB_URL:-}
       FIELD_NOTES_URL: ${FIELD_NOTES_URL:-}
+      # The port-forward hints: your kube context and namespace (hints only, the lab never runs kubectl). Empty = <your-context>/<your-namespace>.
+      OBS_KUBE_CONTEXT: ${OBS_KUBE_CONTEXT:-}
+      OBS_KUBE_NAMESPACE: ${OBS_KUBE_NAMESPACE:-}
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
