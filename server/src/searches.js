@@ -40,7 +40,23 @@ const P = PRIVILEGE_VIEW; const ALL = PING_VIEW;
 const text = (label, placeholder) => ({ kind: 'text', label, placeholder });
 const select = (label, options) => ({ kind: 'select', label, options });
 export const PRODUCTS = ['pingfederate', 'pinggateway', 'privilege-gateway', 'privilege', 'pingone'];
-export const PINGONE_SERVICES = ['SSO/Platform', 'MFA', 'DaVinci', 'Authorize', 'Protect', 'Verify', 'Credentials', 'Admin config', 'other'];
+// The ping_component values the Elasticsearch pipeline writes for PingOne events (from the event type), with readable labels.
+// A select option is a plain value or { value, label }; the value goes into the KQL, the label is what the list shows.
+export const PINGONE_SERVICES = [
+  { value: 'sso', label: 'SSO' },
+  { value: 'mfa', label: 'MFA' },
+  { value: 'davinci', label: 'DaVinci' },
+  { value: 'authorize', label: 'Authorize (P1AZ)' },
+  { value: 'protect', label: 'Protect' },
+  { value: 'verify', label: 'Verify' },
+  { value: 'credentials', label: 'Credentials' },
+  { value: 'directory', label: 'Directory' },
+  { value: 'governance', label: 'Governance (access requests, agreements)' },
+  { value: 'provisioning', label: 'Provisioning' },
+  { value: 'admin-config', label: 'Admin config' },
+  { value: 'other', label: 'Other' },
+];
+export const optionOf = (o) => (typeof o === 'string' ? { value: o, label: o } : o);
 
 // `{value}` marks where the input goes (quoted and escaped by kqlString). Every search was run against the real index over 30 days
 // before it shipped (counts in the PR that added this tab); the PingOne group has no data until PingOne forwarding is live.

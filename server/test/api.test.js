@@ -118,7 +118,18 @@ test('scenarios, diagram and runs endpoints; verticals fill the cast', async () 
     const fin = await J(await fetch(`${url}/api/scenarios?vertical=finance`));
     assert.match(JSON.stringify(fin), /payments-agent/);
     const d = await J(await fetch(`${url}/api/diagram`));
-    assert.ok(d.nodes.length >= 8 && d.steps.length >= 6);
+    assert.equal(d.nodes.length, 21); assert.equal(d.steps.length, 21);
+    const pipe = await J(await fetch(`${url}/api/diagram?name=log-pipeline`));
+    assert.deepEqual(pipe.nodes.map((n) => n.id), ['pingone', 'pf', 'gw', 'fwd', 'docker', 'alloy', 'loki', 'viewer', 'prom', 'rules',
+      'vector', 'agw', 'privgw', 'siem', 'bridge', 'p1sub', 'p1events', 'es', 'kibana', 'loopfwd', 'lab'], 'every original box is kept, the new paths follow');
+    const byId = Object.fromEntries(pipe.nodes.map((n) => [n.id, n]));
+    for (const id of ['vector', 'agw', 'privgw', 'siem', 'bridge', 'es', 'kibana', 'loopfwd', 'lab']) assert.equal(byId[id].sub.at(-1), 'Measured live 2026-11-08', id);
+    for (const id of ['p1sub', 'p1events']) assert.equal(byId[id].sub.at(-1), 'Being switched on: not measured yet', id);
+    assert.equal(byId.pingone.sub, undefined, 'the original boxes carry no sub lines');
+    const hops = pipe.steps.map((s) => `${s.from}>${s.to}`);
+    for (const h of ['privgw>siem', 'siem>es', 'privgw>bridge', 'bridge>es', 'pf>vector', 'gw>vector', 'agw>vector', 'vector>es', 'p1sub>p1events', 'p1events>es', 'es>kibana', 'es>loopfwd', 'loopfwd>lab', 'lab>kibana']) assert.ok(hops.includes(h), h);
+    assert.equal(new Set(pipe.nodes.map((n) => `${n.x},${n.y}`)).size, pipe.nodes.length, 'no two boxes share a position');
+    assert.ok(!/\b(?!\w+\.example\b)[a-z0-9-]+\.(com|net|io|org)\b/i.test(JSON.stringify(pipe)), 'no real hostnames in the diagram');
     assert.deepEqual((await J(await fetch(`${url}/api/diagram?name=../../etc/passwd`))).title, d.title, 'an unknown diagram name falls back, never reads a path');
     await post(url, '/api/incident', { name: 'login-burst' });
     assert.deepEqual((await J(await fetch(`${url}/api/runs`))).runs.map((r) => r.action), ['incident']);

@@ -2,6 +2,9 @@
 
 ## 0.1.0 (unreleased)
 
+- Added: the Pipeline tab shows the paths that now exist besides the mock Loki path: Privilege hosted gateway and console to the Privilege SIEM export and the Privilege logs bridge (decisions, AI Guard, approvals) into `ping-siem-events-v2`; a Vector collector on local Docker reading PingFederate, PingGateway and the Privilege agent gateway into `ping-logs-*` (noise tagged, secrets masked); the PingOne webhook subscription through pingone-events-LAB into `ping-logs-pingone`; Elasticsearch to Kibana; and this lab reading the Privilege index through the loopback forwarder and linking into Kibana. 11 new boxes and 14 new Simulate steps (21 and 21); each new box has a one-line description and its honesty label (measured live 2026-11-08, or for PingOne: being switched on, not measured yet).
+- Changed: the Searches tab PingOne service select uses the `ping_component` values the Elasticsearch pipeline writes (sso, mfa, davinci, authorize, protect, verify, credentials, directory, governance, provisioning, admin-config, other) with readable labels.
+
 - Added: more Kibana links in the **Privilege logs in Kibana** panel, all on the `PRIVILEGE_KIBANA_URL` origin: the Privilege overview dashboard, the Ping logs (all products) dashboard, Discover on the `ping-logs` data view (last 30 days), Security detection rules, and the Detection rule monitoring dashboard. The first two links are now labelled Privilege logs dashboard and Discover on Privilege logs.
 - Fixed: the **Denials and holds** query counted AI Guard denials and could count a hold more than once. It is now policy decisions only (`Index : "policy-decision-log" and privilege.decision : ("deny" or "hitl")`); its note points to the AI Guard query and says the overview dashboard counts each hold once by request id.
 
