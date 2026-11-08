@@ -1,4 +1,4 @@
-// The mock log store: a seeded, deterministic stream for the seven sources, replayed relative to "now" so the
+// The mock log store: a seeded, deterministic stream for the twelve sources, replayed relative to "now" so the
 // last 30 minutes are always populated, plus incidents injected per workspace. Messages keep {{cast}} tokens until read.
 // Pure: no I/O, no clock of its own (now is passed in).
 import { PRODUCTS } from './logData.js';
@@ -79,6 +79,50 @@ function buildBaseline() {
     else push(at, 'phosted', 'proxying', 'info', `level=info msg="Proxying to: http://<backend>.svc.cluster.local"`);
   }
   for (let i = 0; i < 2; i++) push(i * 8 * MIN + 95_000, 'phosted', 'aiguard-blocked', 'warn', `level=warning msg="aiguard: blocked mcp response client=<client> category=malicious_content"`);
+  // Real PingFederate and Ping Gateway lines (measured 2026-11-08): PF prints its server.log to stdout with the file path in front and
+  // about half of it DEBUG; the gateway repeats one router ERROR for a request that matches no route.
+  for (let i = 0; i < 20; i++) push(i * 80_000 + 6000, 'pingfederate', 'server-stdout', 'debug', `/opt/out/instance/log/server.log:  DEBUG [org.sourceid.util.log.internal.TrackingIdSupport] The incoming request does not contain a unique identifier. Assigning auto-generated tracking id`);
+  for (let i = 0; i < 6; i++) push(i * 5 * MIN + 40_000, 'pingfederate', 'server-stdout', 'info', `/opt/out/instance/log/server.log:  INFO  [com.pingidentity.crypto.jwk.impl.JwkStateRpcImpl] Added new key to JSON Web Key Set`);
+  for (let i = 0; i < 12; i++) push(i * 150_000 + 30_000, 'pinggateway', 'router-error', 'error', `[vert.x-eventloop-thread-${1 + (i % 8)}] ERROR o.f.o.handler.router.RouterHandler @default - No handler to dispatch to for request 'https://<host>:<port>/get_model_info'`);
+  // The hosted gateway's OpenSearch documents (field names measured 2026-11-08; the time field is left out, the store keeps the timestamp).
+  const doc = (fields) => JSON.stringify(fields);
+  for (let i = 0; i < 10; i++) {
+    const at = i * 150_000 + 11_000;
+    push(at + 20, 'pevents', 'http-request', 'info', doc({ msg: 'Received HTTP request', level: 'info', Method: 'POST', Path: '/a2a/jsonrpc', Host: '<host>', Domain: '<domain>', Device: '<device>', Tenant: '<tenant-id>', User: '<user-id>' }));
+    if (i === 2 || i === 7) push(at - 1, 'pevents', 'a2a-denied', 'info', doc({ msg: 'A2A policy denied', App: 'worker-agent', Principal: '<principal>', Reason: '<reason>' }));
+  }
+  const llm = [[200, 'claude-haiku-4-5-20251001', 1929, 22, 8], [200, 'claude-haiku-4-5-20251001', 1410, 31, 12], [403, 'claude-opus-5', 85, 0, 0], [400, 'claude-haiku-4-5-20251001', 190, 0, 0]];
+  for (let i = 0; i < 8; i++) {
+    const [status, model, ms, pt, ct] = llm[i % 4];
+    const at = i * 3 * MIN + 25_000;
+    push(at, 'pevents', 'llm-request', 'info', doc({ msg: 'LLM request', HTTPStatus: status, Model: model, Provider: 'anthropic', KeyType: 'api_key', PrincipalKind: 'User', LatencyMs: ms, PromptTokens: pt, CompletionTokens: ct, CostUSD: status === 200 ? 0.0001 : 0, UpstreamStatus: status === 200 ? 200 : 0, LLMRule: '', Tenant: '<tenant-id>', User: '<user-id>', RequestID: '<request-id>' }));
+    if (status === 400) push(at + 5, 'pevents', 'aiguard', 'warn', doc({ msg: 'AIGuard', level: 'warning', Category: 'prompt_injection', Client: '<client>', KeyType: 'api_key', PrincipalKind: 'User', Tenant: '<tenant-id>', User: '<user-id>', RequestID: '<request-id>', TraceID: '<trace-id>', SpanID: '<span-id>', TopScore: 0.99, Direction: '<direction>', Event: '<event>', Findings: [] }));
+  }
+  for (let i = 0; i < 6; i++) {
+    push(i * 4 * MIN + 50_000, 'pevents', 'mcp-caller', 'info', doc({ msg: 'MCP caller', Client: '<client>', User: '<user-id>' }));
+    push(i * 4 * MIN + 49_990, 'pevents', 'mcp-call', 'info', doc({ msg: 'MCP call', Method: 'tools', Tool: 'get_weather' }));
+  }
+  push(14 * MIN + 20_000, 'pevents', 'mcp-denied', 'info', doc({ msg: 'MCP policy denied', Agent: '<agent>', App: 'hostile-mcp', Decision: 'deny', Principal: '<principal>' }));
+  // The guardrail sidecar: one verdict line per text unit; flagged lines carry the score.
+  const scores = ['0.99', '0.98', '1.00'];
+  for (let i = 0; i < 12; i++) push(i * 100_000 + 14_000, 'pguard', i % 4 === 3 ? 'verdict-flagged' : 'verdict-allow', 'info', i % 4 === 3 ? `promptguard: 1 unit(s) -> Prompt-Guard flagged INJECTION (${scores[(i >> 2) % 3]})` : 'promptguard: 1 unit(s) -> allow');
+  for (let i = 0; i < 2; i++) push(i * 9 * MIN + 60_000, 'pguard', 'broken-pipe', 'unknown', 'BrokenPipeError: [Errno 32] Broken pipe');
+  // The banking MCP server: a header line, then the indented context lines that carry the trace id (newest line has the smallest offset).
+  const steps = ['[TEACH] step 3/3: local JWT decode result', 'token audience validated', '[TEACH] step 3/3: introspection result evaluated'];
+  for (let i = 0; i < 8; i++) {
+    const at = i * 3.5 * MIN + 20_000;
+    push(at, 'mcpbank', 'record-header', 'info', `[<time>] INFO: ${steps[i % 3]}`);
+    ['    service: "mcp-server"', '    trace_id: "<trace-id>"', '    span_id: "<span-id>"', '    trace_flags: "01"', '    resource_uri: "<resource-uri>"'].forEach((l, k) => push(at - 1 - k, 'mcpbank', 'record-context', 'info', l));
+  }
+  // The LLM proxy: mostly discovery and health requests, a few chat completions.
+  const routes = ['GET / → llama-3.2-3b-instruct (class 0 via classified-raw) | load=10', 'GET /v1/models → llama-3.2-3b-instruct (class 0 via classified-raw) | load=10', 'GET /info → llama-3.2-3b-instruct (class 0 via classified-raw) | load=12', 'POST /v1/chat/completions → llama-3.2-3b-instruct (class 0 via model=phi-4-mini-instruct) | load=10'];
+  for (let i = 0; i < 24; i++) push(i * 70_000 + 9000, 'llmproxy', 'route', 'info', `[proxy] ${routes[i % 4]}`);
+  // The authz server: each decision twice, readable then JSON (only permit decisions were observed).
+  for (let i = 0; i < 16; i++) {
+    const at = i * 110_000 + 17_000;
+    push(at, 'authz', 'decision-text', 'info', '[cid=<correlation-id>] [AuthzServer/decision] policy=mcp-gateway ctx=McpToolsList tool=(none) sub=<user-id> actor=(none) aud=<audience> exp=(none) scopes=[gateway:mcp:invoke] hitlApproved=false');
+    push(at - 1, 'authz', 'decision-json', 'info', doc({ evt: 'authz_decision', decision: 'PERMIT', reason: 'tool discovery permitted (per-tool)', correlationId: '<correlation-id>', decisionContext: 'McpToolsList', tool: null, sub: '<user-id>', actor: null, workerId: 'mcp-gateway', scopes: ['gateway:mcp:invoke'], rarPresent: false, hitlApproved: false, decisionId: '<decision-id>', policyVersion: 'mock-v1' }));
+  }
   for (let i = 0; i < 15; i++) push(i * 2 * MIN + 15_000, 'mcp', 'gw-lines', 'info', `[GW] authz warm: ok ${20 + ((i * 7) % 25)}ms (http://authz.example:9001)`);
   return out.sort((a, b) => b.offsetMs - a.offsetMs).map((e, i) => ({ ...e, id: `base-${String(i).padStart(4, '0')}` }));
 }
