@@ -5,7 +5,7 @@ import { queryLogs, setRelabel, simulate } from "../api";
 import { visible } from "../safeText";
 
 export const DEFAULT_QUERY = '{service=~"pingone-webhook|pingfederate|ping-gateway"}';
-const PRODUCT_NAMES = { pingone: "PingOne", pingfederate: "PingFederate", pinggateway: "Ping Gateway", phosted: "Privilege hosted gateway", unknown: "Other" };
+const PRODUCT_NAMES = { pingone: "PingOne", pingfederate: "PingFederate", pinggateway: "Ping Gateway", phosted: "Privilege hosted gateway", pevents: "Privilege gateway events", pguard: "Prompt-Guard sidecar", mcpbank: "Banking MCP server", llmproxy: "LLM proxy", authz: "Authz server", unknown: "Other" };
 const LEVEL_CLASS = { error: "tag tag--deny", fatal: "tag tag--deny", warn: "tag tag--warn", warning: "tag tag--warn", info: "tag", debug: "tag tag--quiet" };
 const clock = (iso) => iso.slice(11, 19);
 

@@ -83,7 +83,7 @@ test('Loki and Alloy make no outbound calls of their own and listen on loopback'
 
 test('Privilege sources: stdout containers are filtered by exact name, the gateway file is read-only, tailed from the end and filtered', () => {
   const alloy = here('stack/alloy.alloy');
-  for (const name of ['lab-proxy-lab-proxy-1', 'procyon-nodesensor', 'ai-demo-mcp-gateway']) assert.match(alloy, new RegExp(`"\\^/\\?${name}\\$"`), `${name} is matched exactly`);
+  for (const name of ['lab-proxy-lab-proxy-1', 'procyon-nodesensor', 'ai-demo-mcp-gateway', 'ai-demo-pingfederate', 'ai-demo-ping-gateway', 'ai-demo-llm-proxy', 'ai-demo-authz-server', 'ai-demo-mcp-server']) assert.match(alloy, new RegExp(`"\\^/\\?${name}\\$"`), `${name} is matched exactly`);
   assert.match(alloy, /\(\?:ai-demo-\)\?/, 'service drops the ai-demo- prefix, as AI-DEMO2 does');
   assert.match(alloy, /tail_from_end = true/, 'the gateway file holds days of history; only new lines are shipped');
   assert.match(alloy, /stage\.match[\s\S]*action\s*=\s*"drop"/, 'lines outside the four modelled families are dropped');
@@ -93,6 +93,9 @@ test('Privilege sources: stdout containers are filtered by exact name, the gatew
   const selector = /selector\s*=\s*"((?:[^"\\]|\\.)*)"/.exec(alloy.split('loki.process "privilege"')[1])[1];
   assert.doesNotMatch(selector.replace(/\\"/g, ''), /\\/, 'no backslash escapes inside the match selector');
   assert.match(alloy, /older_than\s*=\s*"15m"/, 'a restart does not replay old container history into Loki');
+  assert.match(alloy, /stage\.limit[\s\S]*drop\s*=\s*true/, 'one noisy container cannot fill the small Loki');
+  const limit = /stage\.limit \{([^}]*)\}/.exec(alloy)[1];
+  assert.doesNotMatch(limit, /drop_counter_reason/, 'stage.limit has no drop_counter_reason (only stage.drop does): Alloy refuses the file and the container exits');
   const priv = here('docker-compose.privilege.yml');
   assert.match(priv, /privilege-logs:\/privilege-logs:ro/, 'the gateway log volume is mounted read-only');
   assert.match(priv, /external: true/, 'the volume belongs to AI-DEMO2; this lab never creates it');

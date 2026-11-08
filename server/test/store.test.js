@@ -76,7 +76,7 @@ test('relabel off: the service label carries the raw container name, every by-se
   assert.ok(ask(off, '{service="/obs-demo-pingfederate"}').total > 0, 'the lines are still there under the raw name');
   const al = await alertsFor(off);
   assert.equal(al.ProductLogSilence.state, 'firing');
-  assert.deepEqual(al.ProductLogSilence.evidence.silentServices.sort(), ['agentless-mcpgw', 'mcp-gateway', 'ping-gateway', 'ping-mcpgw', 'pingfederate', 'pingone-webhook', 'procyon-nodesensor']);
+  assert.deepEqual(al.ProductLogSilence.evidence.silentServices.sort(), ['agentless-mcpgw', 'authz-server', 'gateway-events', 'llm-proxy', 'mcp-gateway', 'mcp-promptguard', 'mcp-server', 'ping-gateway', 'ping-mcpgw', 'pingfederate', 'pingone-webhook', 'procyon-nodesensor']);
   assert.equal(al.FailedLoginBurst.state, 'ok', 'the other rules just go quiet, which is the trap');
 });
 
@@ -162,4 +162,37 @@ test('Privilege hosted gateway: each request names the caller and the app; allow
   assert.ok(all.filter((e) => e.source === 'aiguard-blocked').every((e) => e.level === 'warn'));
   for (const e of all) assert.ok(!/[0-9a-f]{8}-[0-9a-f]{4}-/.test(e.message), 'no real id in a seeded line');
   assert.ok(all.some((e) => e.ts >= NOW - 10 * 60_000), 'fresh enough that the silence rule is quiet at baseline');
+});
+
+test('real PingFederate and Ping Gateway lines (measured): the stdout server log is half DEBUG with the path in front, the router error repeats', () => {
+  const pf = ask(fresh(), '{service="pingfederate"} |= "server.log:"', { limit: 200 }).entries;
+  assert.ok(pf.length >= 20 && pf.every((e) => e.source === 'server-stdout' && e.message.startsWith('/opt/out/instance/log/server.log:')));
+  assert.ok(pf.filter((e) => e.level === 'debug').length > pf.filter((e) => e.level === 'info').length, 'mostly DEBUG, as measured');
+  const gw = ask(fresh(), '{service="ping-gateway"} |= "No handler to dispatch"', { limit: 100 }).entries;
+  assert.ok(gw.length >= 10 && gw.every((e) => e.level === 'error' && e.source === 'router-error'));
+});
+
+test('hosted gateway OpenSearch events: seven kinds, each JSON with its measured field names, a blocked model call still has a document', () => {
+  const all = ask(fresh(), '{service="gateway-events"}', { limit: 500 }).entries;
+  assert.ok(all.every((e) => e.product === 'pevents'));
+  const docs = all.map((e) => JSON.parse(e.message));
+  assert.deepEqual([...new Set(docs.map((d) => d.msg))].sort(), ['A2A policy denied', 'AIGuard', 'LLM request', 'MCP call', 'MCP caller', 'MCP policy denied', 'Received HTTP request']);
+  const llm = docs.filter((d) => d.msg === 'LLM request');
+  assert.ok(llm.some((d) => d.HTTPStatus === 400) && llm.some((d) => d.HTTPStatus === 403), 'refused and blocked calls are documented');
+  for (const d of llm) for (const f of ['Model', 'Provider', 'PromptTokens', 'CompletionTokens', 'CostUSD', 'LatencyMs', 'HTTPStatus']) assert.ok(f in d, `LLM request has ${f}`);
+  assert.ok(docs.filter((d) => d.msg === 'MCP caller').every((d) => !('level' in d)), 'MCP caller has no level field, as measured');
+});
+
+test('guardrail sidecar, banking MCP server, LLM proxy and authz server keep their measured shapes', () => {
+  const pg = ask(fresh(), '{service="mcp-promptguard"}', { limit: 100 }).entries;
+  assert.ok(pg.some((e) => /flagged INJECTION \(\d\.\d\d\)/.test(e.message)) && pg.some((e) => e.message === 'promptguard: 1 unit(s) -> allow'));
+  const bank = ask(fresh(), '{service="mcp-server"} |= "trace_id"', { limit: 100 }).entries;
+  assert.ok(bank.length >= 8 && bank.every((e) => e.source === 'record-context' && /^ {4}trace_id: "<trace-id>"$/.test(e.message)), 'the trace id is on an indented context line, not the header');
+  const proxy = ask(fresh(), '{service="llm-proxy"}', { limit: 100 }).entries;
+  assert.ok(proxy.every((e) => e.message.startsWith('[proxy] ')) && proxy.some((e) => e.message.includes('POST /v1/chat/completions')));
+  const authz = ask(fresh(), '{service="authz-server"}', { limit: 100 }).entries;
+  const json = authz.filter((e) => e.source === 'decision-json').map((e) => JSON.parse(e.message));
+  assert.equal(json.length, authz.filter((e) => e.source === 'decision-text').length, 'every decision is printed twice');
+  assert.ok(json.every((d) => d.evt === 'authz_decision' && d.decision === 'PERMIT' && 'reason' in d && 'policyVersion' in d));
+  for (const e of [...pg, ...bank, ...proxy, ...authz]) assert.ok(!/[0-9a-f]{8}-[0-9a-f]{4}-/.test(e.message), 'no real id in a seeded line');
 });
