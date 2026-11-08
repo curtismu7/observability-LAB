@@ -15,6 +15,16 @@ services:
       # Real mode reads this Loki, read-only, loopback only. Empty = Real stays disabled. With the stack profile, run:
       #   OBS_LOKI_URL=http://127.0.0.1:3100 docker compose --profile stack up -d
       OBS_LOKI_URL: ${OBS_LOKI_URL:-}
+      # Privilege SIEM (Real, read-only): passed through from YOUR shell, never written here. Empty PRIVILEGE_SIEM_URL = off.
+      # In Docker use PRIVILEGE_SIEM_URL=http://127.0.0.1:9200 with the `siem` profile: the forwarder below makes that the
+      # Mac's localhost:9200 (the Elasticsearch port-forward). The lab still accepts only a loopback URL.
+      PRIVILEGE_SIEM_URL: ${PRIVILEGE_SIEM_URL:-}
+      PRIVILEGE_SIEM_INDEX: ${PRIVILEGE_SIEM_INDEX:-}
+      PRIVILEGE_SIEM_READ_APIKEY: ${PRIVILEGE_SIEM_READ_APIKEY:-}
+      # Links only (the lab never calls them): the Kibana origin, and the two sibling labs on the Searches tab (loopback only).
+      PRIVILEGE_KIBANA_URL: ${PRIVILEGE_KIBANA_URL:-}
+      PRIVILEGE_LOGGING_LAB_URL: ${PRIVILEGE_LOGGING_LAB_URL:-}
+      FIELD_NOTES_URL: ${FIELD_NOTES_URL:-}
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
@@ -57,6 +67,23 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     tmpfs: ["/tmp"]
     mem_limit: 256m
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  # ── Privilege SIEM forwarder (profile `siem`) ─────────────────────────────────────────────────────────────────
+  # The lab reads the SIEM only from a loopback URL, and the container's loopback is not the Mac's. This shares the lab's network
+  # namespace and listens on 127.0.0.1:9200 there, passing bytes to the Mac's localhost:9200 (OrbStack's host.docker.internal), where
+  # the Elasticsearch port-forward runs. A plain TCP relay with no options for logging (no -v/-d): the key passes through in the request
+  # header like any HTTP hop and is never printed. It publishes no host port.
+  siem-forwarder:
+    image: alpine/socat:1.8.1.1
+    profiles: ["siem"]
+    network_mode: "service:observability-lab"
+    depends_on: [observability-lab]
+    command: ["TCP-LISTEN:9200,bind=127.0.0.1,fork,reuseaddr", "TCP:host.docker.internal:9200"]
+    user: "65534:65534"
+    mem_limit: 32m
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
