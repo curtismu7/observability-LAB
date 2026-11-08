@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import test from 'node:test';
-import { KIBANA_PORT_FORWARD, kibanaFrom, realAvailableFrom, siemFrom, siemProblemFrom } from '../src/config.js';
+import { KIBANA_PORT_FORWARD, KIBANA_QUERIES, kibanaFrom, realAvailableFrom, rison, siemFrom, siemProblemFrom } from '../src/config.js';
 import { parseQuery } from '../src/logql.js';
 import { LIMITS, SiemError, createSiemClient, levelOfDoc, scrub } from '../src/siemClient.js';
 import { post, withServer } from './helpers.js';
@@ -219,4 +219,43 @@ test('the Mock SIEM sample has the measured shape: the four measured indices mat
     assert.ok(docs.every(({ d }) => ['console', 'runtime'].includes(d.privilege_event_kind)));
     assert.ok(!/[0-9a-f]{8}-[0-9a-f]{4}-/.test(logs.entries.map((e) => e.message).join('')), 'placeholders only');
   }, { env: { MODE: 'mock' } });
+});
+
+const unrison = (s) => s.slice(1, -1).replace(/!'/g, "'").replace(/!!/g, '!');
+
+test('Kibana links: dashboard, Discover, five saved searches and seven queries, all on the one origin setting', T, () => {
+  const k = kibanaFrom({});
+  assert.equal(k.dashboard, 'http://localhost:5601/app/dashboards#/view/privilege-logs-dashboard');
+  assert.equal(k.discover, k.deepLink);
+  assert.deepEqual(k.savedSearches.map((s) => s.id), ['privilege-all', 'privilege-runtime', 'privilege-console', 'privilege-decisions', 'privilege-aiguard']);
+  for (const s of k.savedSearches) assert.equal(s.url, `http://localhost:5601/app/discover#/view/${s.id}`);
+  assert.deepEqual(k.queries.map((qy) => qy.kql), [
+    'privilege_event_kind : "runtime"',
+    'privilege_event_kind : "console"',
+    'Index : "policy-decision-log"',
+    'privilege_event_kind : "runtime" and Index : "policy-decision-log"',
+    'privilege.decision : ("deny" or "hitl")',
+    'privilege_event_kind : "runtime" and Index : "aiguard-log"',
+    'Index : "proxy-audit-log"',
+  ]);
+  assert.ok(k.fieldNotes.length === 2 && k.fieldNotes.some((n) => n.includes('runtime fields')));
+  assert.equal(k.portForward, KIBANA_PORT_FORWARD);
+  const o = kibanaFrom({ PRIVILEGE_KIBANA_URL: 'https://kibana.example:5601' });
+  for (const link of [o.dashboard, o.discover, ...o.savedSearches.map((s) => s.url), ...o.queries.map((qy) => qy.runUrl)]) assert.ok(link.startsWith('https://kibana.example:5601/app/'), link);
+  assert.ok(![k, o].some((x) => JSON.stringify(x).includes('undefined')));
+});
+
+test('Kibana "Run in Discover" links carry the query exactly: Rison-quoted, URL-encoded, and they decode back to the KQL', T, () => {
+  for (const origin of [undefined, 'http://localhost:5601']) {
+    const k = kibanaFrom(origin ? { PRIVILEGE_KIBANA_URL: origin } : {});
+    for (const qy of k.queries) {
+      const m = qy.runUrl.match(/query:\(language:kuery,query:('.*')\)\)&_g=\(time:\(from:now-30d,to:now\)\)$/);
+      assert.ok(m, qy.runUrl);
+      assert.equal(unrison(decodeURIComponent(m[1])), qy.kql, `${qy.id} round-trips`);
+      assert.ok(qy.runUrl.includes("dataViewId:'privilege-logs'"));
+      assert.ok(!/[ "]/.test(qy.runUrl), 'no raw space or quote in the link');
+    }
+  }
+  assert.equal(rison("a!b'c"), "'a!!b!'c'", 'Rison escapes ! and the quote');
+  assert.equal(KIBANA_QUERIES.length, 7);
 });
