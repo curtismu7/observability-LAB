@@ -1,4 +1,4 @@
-// The lab's own collector. It reads the stdout of nine containers, matched by exact name: the lab-proxy (one access line per
+// The lab's own collector. It reads the stdout of ten containers, matched by exact name: the lab-proxy (one access line per
 // request to every lab behind it, which the browser driver exercises), the two Privilege sources that print to stdout (the node
 // sensor and the MCP gateway), and six AI-DEMO2 services whose lines the lab models: PingFederate, the Ping Gateway, the LLM
 // proxy, the authz server, the banking MCP server and the weather MCP server (measured 2026-11-08: none printed a token or secret). `service` comes from the container name with a leading ai-demo- removed, the same rule
@@ -9,7 +9,7 @@ discovery.docker "labs" {
   host = "unix:///var/run/docker.sock"
   filter {
     name   = "name"
-    values = ["^/?lab-proxy-lab-proxy-1$", "^/?procyon-nodesensor$", "^/?ai-demo-mcp-gateway$", "^/?ai-demo-pingfederate$", "^/?ai-demo-ping-gateway$", "^/?ai-demo-llm-proxy$", "^/?ai-demo-authz-server$", "^/?ai-demo-mcp-server$", "^/?ai-demo-mcp-weather$"]
+    values = ["^/?lab-proxy-lab-proxy-1$", "^/?procyon-nodesensor$", "^/?ai-demo-mcp-gateway$", "^/?ai-demo-pingfederate$", "^/?ai-demo-ping-gateway$", "^/?ai-demo-llm-proxy$", "^/?ai-demo-authz-server$", "^/?ai-demo-mcp-server$", "^/?ai-demo-mcp-weather$", "^/?ai-demo-hitl-service$"]
   }
 }
 
