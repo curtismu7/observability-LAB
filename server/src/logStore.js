@@ -1,4 +1,4 @@
-// The mock log store: a seeded, deterministic stream for the thirteen sources, replayed relative to "now" so the
+// The mock log store: a seeded, deterministic stream for the fourteen sources, replayed relative to "now" so the
 // last 30 minutes are always populated, plus incidents injected per workspace. Messages keep {{cast}} tokens until read.
 // Pure: no I/O, no clock of its own (now is passed in).
 import { SIEM_SOURCES, PRODUCTS } from './logData.js';
@@ -138,6 +138,11 @@ function buildBaseline() {
   for (let i = 0; i < 3; i++) push(i * 9 * MIN + 70_000, 'psiem', 'aiguard-log', 'warn', doc({ privilege_bridge: true, '@timestamp': '<time>', Message: 'AIGuard', Region: '<region>', Data: { Findings: [{ Score: 0, Category: 'malicious_content', Detector: '<detector>', Recommended: '<recommended>', Severity: '<severity>' }], Category: 'malicious_content', User: '<user>', KeyType: '<keytype>', RequestID: '<requestid>', TopScore: 0, ComplianceMappings: [{ MappingType: '<mappingtype>', Identifier: '<identifier>', CatalogVersion: '<catalogversion>', Framework: '<framework>', Source: '<source>' }], NISTAIRMFIDs: ['<nistairmfids>'], Direction: i % 2 ? 'request' : 'response', MITREATLASIDs: ['<mitreatlasids>'], ElapsedMs: 0, PrincipalKind: 'User', Tenant: '<tenant>', ComplianceCatalogSecurityVersion: '<compliancecatalogsecurityversion>', Event: i % 2 ? 'llm_request_alert' : 'mcp_response_blocked', TraceID: '<traceid>', Client: '<client>', ASIIDs: ['<asiids>'], OWASPIDs: ['<owaspids>'], SpanID: '<spanid>' }, Level: 'WARNING', Index: 'aiguard-log', privilege_event_kind: 'runtime' }));
   // agent-approval-log: listed but its shape was not measured, so the sample stays a guess.
   for (let i = 0; i < 2; i++) push(i * 12 * MIN + 100_000, 'psiem', 'agent-approval-log', 'info', doc({ Index: 'agent-approval-log', privilege_event_kind: 'runtime', '@timestamp': '<time>', Data: { Agent: '<agent>', Decision: '<decision>' } }));
+  // The weather MCP server: one JSON object per line. Start-up, a place lookup now and then, an occasional tool error (measured 2026-11-08).
+  push(21 * MIN, 'mcpweather', 'startup', 'info', doc({ timestamp: '<time>', level: 'INFO', message: 'Weather MCP Server started', metadata: { version: '1.13.0', cacheEnabled: true, logLevel: 'INFO', enabledTools: 6 } }));
+  push(21 * MIN - 1, 'mcpweather', 'startup', 'info', doc({ timestamp: '<time>', level: 'INFO', message: 'Analytics disabled by user preference' }));
+  for (let i = 0; i < 6; i++) push(i * 4 * MIN + 55_000, 'mcpweather', 'geocoding', 'info', doc({ timestamp: '<time>', level: 'INFO', message: `Geocoding successful via Nominatim: ${1 + (i % 5)} result(s)` }));
+  for (let i = 0; i < 2; i++) push(i * 11 * MIN + 150_000, 'mcpweather', 'tool-error', 'error', doc({ timestamp: '<time>', level: 'ERROR', message: 'Tool execution error', error: { message: 'Saved location "<place>" not found.', stack: '<stack trace>' } }));
   for (let i = 0; i < 15; i++) push(i * 2 * MIN + 15_000, 'mcp', 'gw-lines', 'info', `[GW] authz warm: ok ${20 + ((i * 7) % 25)}ms (http://authz.example:9001)`);
   return out.sort((a, b) => b.offsetMs - a.offsetMs).map((e, i) => ({ ...e, id: `base-${String(i).padStart(4, '0')}` }));
 }

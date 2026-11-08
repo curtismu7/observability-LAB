@@ -76,7 +76,7 @@ test('relabel off: the service label carries the raw container name, every by-se
   assert.ok(ask(off, '{service="/obs-demo-pingfederate"}').total > 0, 'the lines are still there under the raw name');
   const al = await alertsFor(off);
   assert.equal(al.ProductLogSilence.state, 'firing');
-  assert.deepEqual(al.ProductLogSilence.evidence.silentServices.sort(), ['agentless-mcpgw', 'authz-server', 'gateway-events', 'llm-proxy', 'mcp-gateway', 'mcp-promptguard', 'mcp-server', 'ping-gateway', 'ping-mcpgw', 'pingfederate', 'pingone-webhook', 'privilege-siem', 'procyon-nodesensor']);
+  assert.deepEqual(al.ProductLogSilence.evidence.silentServices.sort(), ['agentless-mcpgw', 'authz-server', 'gateway-events', 'llm-proxy', 'mcp-gateway', 'mcp-promptguard', 'mcp-server', 'mcp-weather', 'ping-gateway', 'ping-mcpgw', 'pingfederate', 'pingone-webhook', 'privilege-siem', 'procyon-nodesensor']);
   assert.equal(al.FailedLoginBurst.state, 'ok', 'the other rules just go quiet, which is the trap');
 });
 
@@ -195,4 +195,17 @@ test('guardrail sidecar, banking MCP server, LLM proxy and authz server keep the
   assert.equal(json.length, authz.filter((e) => e.source === 'decision-text').length, 'every decision is printed twice');
   assert.ok(json.every((d) => d.evt === 'authz_decision' && d.decision === 'PERMIT' && 'reason' in d && 'policyVersion' in d));
   for (const e of [...pg, ...bank, ...proxy, ...authz]) assert.ok(!/[0-9a-f]{8}-[0-9a-f]{4}-/.test(e.message), 'no real id in a seeded line');
+});
+
+test('weather MCP server (measured): one JSON object per line, start-up, a place lookup and a tool error with a stack, no real id', () => {
+  const all = ask(fresh(), '{service="mcp-weather"}', { limit: 100 }).entries;
+  assert.ok(all.length >= 8 && all.every((e) => e.product === 'mcpweather'));
+  const docs = all.map((e) => ({ e, d: JSON.parse(e.message) }));
+  assert.ok(docs.every(({ d }) => typeof d.timestamp === 'string' && ['INFO', 'ERROR'].includes(d.level) && typeof d.message === 'string'));
+  const errors = docs.filter(({ d }) => d.level === 'ERROR');
+  assert.ok(errors.length >= 2 && errors.every(({ d, e }) => d.message === 'Tool execution error' && 'message' in d.error && 'stack' in d.error && e.level === 'error' && e.source === 'tool-error'));
+  assert.ok(docs.some(({ d }) => /^Geocoding successful via Nominatim: \d+ result\(s\)$/.test(d.message)));
+  assert.ok(docs.some(({ d }) => d.message === 'Weather MCP Server started' && d.metadata.enabledTools === 6));
+  for (const e of all) assert.ok(!/[0-9a-f]{8}-[0-9a-f]{4}-/.test(e.message));
+  assert.ok(all.some((e) => e.ts >= NOW - 10 * 60_000), 'fresh enough that the silence rule is quiet at baseline');
 });

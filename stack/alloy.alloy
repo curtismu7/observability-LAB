@@ -1,7 +1,7 @@
-// The lab's own collector. It reads the stdout of eight containers, matched by exact name: the lab-proxy (one access line per
+// The lab's own collector. It reads the stdout of nine containers, matched by exact name: the lab-proxy (one access line per
 // request to every lab behind it, which the browser driver exercises), the two Privilege sources that print to stdout (the node
-// sensor and the MCP gateway), and five AI-DEMO2 services whose lines the lab models: PingFederate, the Ping Gateway, the LLM
-// proxy, the authz server and the banking MCP server (measured 2026-11-08: none printed a token or secret). `service` comes from the container name with a leading ai-demo- removed, the same rule
+// sensor and the MCP gateway), and six AI-DEMO2 services whose lines the lab models: PingFederate, the Ping Gateway, the LLM
+// proxy, the authz server, the banking MCP server and the weather MCP server (measured 2026-11-08: none printed a token or secret). `service` comes from the container name with a leading ai-demo- removed, the same rule
 // AI-DEMO2's collector uses. The agent gateway (ping-mcpgw) writes a FILE instead; see the last section. Every line the proxy prints is shipped, not only the driver's; the driver's requests carry
 // a HeadlessChrome user agent. `origin` says which stack collected the line.
 // The Docker socket is mounted read-only in compose.yml, as in AI-DEMO2: it only lists containers and reads their logs.
@@ -9,7 +9,7 @@ discovery.docker "labs" {
   host = "unix:///var/run/docker.sock"
   filter {
     name   = "name"
-    values = ["^/?lab-proxy-lab-proxy-1$", "^/?procyon-nodesensor$", "^/?ai-demo-mcp-gateway$", "^/?ai-demo-pingfederate$", "^/?ai-demo-ping-gateway$", "^/?ai-demo-llm-proxy$", "^/?ai-demo-authz-server$", "^/?ai-demo-mcp-server$"]
+    values = ["^/?lab-proxy-lab-proxy-1$", "^/?procyon-nodesensor$", "^/?ai-demo-mcp-gateway$", "^/?ai-demo-pingfederate$", "^/?ai-demo-ping-gateway$", "^/?ai-demo-llm-proxy$", "^/?ai-demo-authz-server$", "^/?ai-demo-mcp-server$", "^/?ai-demo-mcp-weather$"]
   }
 }
 
