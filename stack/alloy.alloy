@@ -44,8 +44,8 @@ loki.process "recent" {
 // The Privilege agent gateway (ping-mcpgw) logs to a file, /var/log/procyon/cyonproxy.log, and prints nothing on stdout,
 // so a collector that reads container stdout never sees it (measured 2026-11-07). docker-compose.privilege.yml mounts
 // AI-DEMO2's log volume read-only at /privilege-logs; without it this block finds no file and ships nothing.
-// tail_from_end: only lines written from now on (the file holds days of history). Only the three message families the
-// lab models are kept; the file's other lines (tenant and node ids, peer certificates) are dropped before Loki.
+// tail_from_end: only lines written from now on (the file holds days of history). Only the four message families the
+// lab models are kept (the three rejection and stream lines, plus the [SERVER] request lines that carry User-Agent and Remote Addr); the file's other lines (tenant and node ids, peer certificates) are dropped before Loki.
 local.file_match "privilege" {
   path_targets = [{"__path__" = "/privilege-logs/cyonproxy.log", "service" = "ping-mcpgw", "origin" = "observability-lab-stack"}]
 }
@@ -59,7 +59,7 @@ loki.source.file "privilege" {
 loki.process "privilege" {
   forward_to = [loki.write.local.receiver]
   stage.match {
-    selector = "{service=\"ping-mcpgw\"} !~ \"authorization header missing|Invalid Authorization token|Error receiving from the stream\""
+    selector = "{service=\"ping-mcpgw\"} !~ \"authorization header missing|Invalid Authorization token|Error receiving from the stream|\\[SERVER\\]\""
     action   = "drop"
   }
 }
