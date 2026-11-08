@@ -83,7 +83,7 @@ test('Loki and Alloy make no outbound calls of their own and listen on loopback'
 
 test('Privilege sources: stdout containers are filtered by exact name, the gateway file is read-only, tailed from the end and filtered', () => {
   const alloy = here('stack/alloy.alloy');
-  for (const name of ['lab-proxy-lab-proxy-1', 'procyon-nodesensor', 'ai-demo-mcp-gateway', 'ai-demo-pingfederate', 'ai-demo-ping-gateway', 'ai-demo-llm-proxy', 'ai-demo-authz-server', 'ai-demo-mcp-server']) assert.match(alloy, new RegExp(`"\\^/\\?${name}\\$"`), `${name} is matched exactly`);
+  for (const name of ['lab-proxy-lab-proxy-1', 'procyon-nodesensor', 'ai-demo-mcp-gateway', 'ai-demo-pingfederate', 'ai-demo-ping-gateway', 'ai-demo-llm-proxy', 'ai-demo-authz-server', 'ai-demo-mcp-server', 'ai-demo-mcp-weather']) assert.match(alloy, new RegExp(`"\\^/\\?${name}\\$"`), `${name} is matched exactly`);
   assert.match(alloy, /\(\?:ai-demo-\)\?/, 'service drops the ai-demo- prefix, as AI-DEMO2 does');
   assert.match(alloy, /tail_from_end = true/, 'the gateway file holds days of history; only new lines are shipped');
   assert.match(alloy, /stage\.match[\s\S]*action\s*=\s*"drop"/, 'lines outside the four modelled families are dropped');

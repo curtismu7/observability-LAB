@@ -4,7 +4,7 @@
 
 ## Say this first
 
-Everything on this screen is simulated: seeded log lines for thirteen sources and a mock store. The formats are illustrative. What is measured is the pipeline lesson, taken from the AI-DEMO2 monitoring stack.
+Everything on this screen is simulated: seeded log lines for fourteen sources and a mock store. The formats are illustrative. What is measured is the pipeline lesson, taken from the AI-DEMO2 monitoring stack.
 
 ## One sign-in, three products
 
