@@ -1,3 +1,4 @@
+import PrivilegeKibana from "./PrivilegeKibana";
 import { visible } from "../safeText";
 
 const STATUS_CLASS = { measured: "tag tag--ok", inferred: "tag", UNVERIFIED: "tag tag--warn" };
@@ -43,6 +44,7 @@ export default function Products({ story, info }) {
   return (
     <div className="products">
       <p className="muted">Each product logs differently. Line shapes are illustrative unless a source is named; the status tag says which.</p>
+      <PrivilegeKibana kibana={info?.siem?.kibana} />
       <div className="cards">
         {story.products.map((p) => (
           <section key={p.id} className="panel" aria-labelledby={`p-${p.id}`} data-testid={`product-${p.id}`}>
