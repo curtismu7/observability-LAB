@@ -84,6 +84,14 @@ function buildBaseline() {
   for (let i = 0; i < 20; i++) push(i * 80_000 + 6000, 'pingfederate', 'server-stdout', 'debug', `/opt/out/instance/log/server.log:  DEBUG [org.sourceid.util.log.internal.TrackingIdSupport] The incoming request does not contain a unique identifier. Assigning auto-generated tracking id`);
   for (let i = 0; i < 6; i++) push(i * 5 * MIN + 40_000, 'pingfederate', 'server-stdout', 'info', `/opt/out/instance/log/server.log:  INFO  [com.pingidentity.crypto.jwk.impl.JwkStateRpcImpl] Added new key to JSON Web Key Set`);
   for (let i = 0; i < 12; i++) push(i * 150_000 + 30_000, 'pinggateway', 'router-error', 'error', `[vert.x-eventloop-thread-${1 + (i % 8)}] ERROR o.f.o.handler.router.RouterHandler @default - No handler to dispatch to for request 'https://<host>:<port>/get_model_info'`);
+  // Audit lines now on stdout (measured 2026-11-08 after AI-DEMO2 PR #3437).
+  for (let i = 0; i < 4; i++) {
+    const tid = hex(rand, 27);
+    push(i * 7 * MIN + 20_000, 'pingfederate', 'audit-stdout', 'info', `/opt/out/instance/log/audit.log:  | tid:${tid}| ${hex(rand, 25)}| OAuth| | <ip> | | <client id>| OAuth20| <host id>| AS| inprogress| | | 479`);
+    push(i * 7 * MIN + 20_020, 'pingfederate', 'audit-stdout', 'warn', `/opt/out/instance/log/audit.log:  | tid:${tid}| ${hex(rand, 25)}| OAuth| | <ip> | | <client id>| OAuth20| <host id>| AS| failure| | Invalid Client| 501`);
+  }
+  for (let i = 0; i < 3; i++) push(i * 9 * MIN + 33_000, 'pingfederate', 'admin-api-stdout', 'warn', `/opt/out/instance/log/admin-api.log:  | administrator| Basic| <ip>| unknown| GET| /version| 401`);
+  for (let i = 0; i < 8; i++) push(i * 4 * MIN + 14_000, 'pinggateway', 'access-audit', i % 2 ? 'warn' : 'info', JSON.stringify({ eventName: 'OPENIG-HTTP-ACCESS', client: { ip: '<ip>' }, http: { request: { method: 'POST', path: 'https://<host>:<port>/mcp' } }, response: { status: i % 2 ? 'FAILED' : 'SUCCESSFUL', statusCode: i % 2 ? '401' : '200', elapsedTime: 7 + i }, ig: { routeId: '01-mcp-olb', routeName: 'mcp-olb-primary' }, topic: 'access' }));
   // The hosted gateway's OpenSearch documents (field names measured 2026-11-08; the time field is left out, the store keeps the timestamp).
   const doc = (fields) => JSON.stringify(fields);
   for (let i = 0; i < 10; i++) {
