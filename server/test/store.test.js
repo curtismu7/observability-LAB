@@ -76,7 +76,7 @@ test('relabel off: the service label carries the raw container name, every by-se
   assert.ok(ask(off, '{service="/obs-demo-pingfederate"}').total > 0, 'the lines are still there under the raw name');
   const al = await alertsFor(off);
   assert.equal(al.ProductLogSilence.state, 'firing');
-  assert.deepEqual(al.ProductLogSilence.evidence.silentServices.sort(), ['agentless-mcpgw', 'authz-server', 'gateway-events', 'llm-proxy', 'mcp-gateway', 'mcp-promptguard', 'mcp-server', 'mcp-weather', 'ping-gateway', 'ping-mcpgw', 'pingfederate', 'pingone-webhook', 'privilege-siem', 'procyon-nodesensor']);
+  assert.deepEqual(al.ProductLogSilence.evidence.silentServices.sort(), ['agentless-mcpgw', 'authz-server', 'gateway-events', 'hitl-service', 'llm-proxy', 'mcp-gateway', 'mcp-promptguard', 'mcp-server', 'mcp-weather', 'ping-gateway', 'ping-mcpgw', 'pingfederate', 'pingone-webhook', 'privilege-siem', 'procyon-nodesensor']);
   assert.equal(al.FailedLoginBurst.state, 'ok', 'the other rules just go quiet, which is the trap');
 });
 

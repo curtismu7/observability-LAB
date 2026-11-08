@@ -1,4 +1,4 @@
-// The mock log store: a seeded, deterministic stream for the fourteen sources, replayed relative to "now" so the
+// The mock log store: a seeded, deterministic stream for the fifteen sources, replayed relative to "now" so the
 // last 30 minutes are always populated, plus incidents injected per workspace. Messages keep {{cast}} tokens until read.
 // Pure: no I/O, no clock of its own (now is passed in).
 import { SIEM_SOURCES, PRODUCTS } from './logData.js';
@@ -92,6 +92,15 @@ function buildBaseline() {
   }
   for (let i = 0; i < 3; i++) push(i * 9 * MIN + 33_000, 'pingfederate', 'admin-api-stdout', 'warn', `/opt/out/instance/log/admin-api.log:  | administrator| Basic| <ip>| unknown| GET| /version| 401`);
   for (let i = 0; i < 8; i++) push(i * 4 * MIN + 14_000, 'pinggateway', 'access-audit', i % 2 ? 'warn' : 'info', JSON.stringify({ eventName: 'OPENIG-HTTP-ACCESS', client: { ip: '<ip>' }, http: { request: { method: 'POST', path: 'https://<host>:<port>/mcp' } }, response: { status: i % 2 ? 'FAILED' : 'SUCCESSFUL', statusCode: i % 2 ? '401' : '200', elapsedTime: 7 + i }, ig: { routeId: '01-mcp-olb', routeName: 'mcp-olb-primary' }, topic: 'access' }));
+  // One measured human-approval run (2026-11-08): gateway authorize lines, then the HITL service receipt check.
+  for (let i = 0; i < 3; i++) {
+    const at = i * 11 * MIN + 41_000;
+    const ch = `${hex(rand, 8)}-${hex(rand, 4)}-${hex(rand, 4)}-${hex(rand, 4)}-${hex(rand, 12)}`;
+    push(at, 'pinggateway', 'p1az-decision', 'info', `[vert.x-eventloop-thread-3] INFO  o.f.o.f.S.P1AZDecision @00-mcp-olb-jwks - [P1AZ] DECISION: PERMIT | backend=real | sub=<user id> | tool=pay_tuition_balance | method=tools/call | vertical=university | obligation=hitl`);
+    push(at + 5, 'pinggateway', 'p1az-decision', 'warn', `[vert.x-eventloop-thread-3] INFO  o.f.o.f.S.P1AZDecision @00-mcp-olb-jwks - [P1AZ] INDETERMINATE - HITL challenge ${ch} minted for tool=pay_tuition_balance`);
+    push(at + 5000, 'pinggateway', 'p1az-decision', 'info', `[vert.x-eventloop-thread-3] INFO  o.f.o.f.S.P1AZDecision @00-mcp-olb-jwks - [P1AZ] DECISION: PERMIT | backend=real | sub=<user id> | tool=pay_tuition_balance | method=tools/call | vertical=university | obligation=hitl`);
+    push(at + 5100, 'hitl', 'receipt-verification', 'info', JSON.stringify({ level: 30, service: 'hitl-service', trace_id: hex(rand, 32), challengeId: ch, tool: 'pay_tuition_balance', ok: true, reason: null, correlation_id: '<correlation id>', msg: 'hitl receipt verification' }));
+  }
   // The hosted gateway's OpenSearch documents (field names measured 2026-11-08; the time field is left out, the store keeps the timestamp).
   const doc = (fields) => JSON.stringify(fields);
   for (let i = 0; i < 10; i++) {
