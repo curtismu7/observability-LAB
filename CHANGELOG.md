@@ -2,6 +2,9 @@
 
 ## 0.1.0 (unreleased)
 
+- Added: more Kibana links in the **Privilege logs in Kibana** panel, all on the `PRIVILEGE_KIBANA_URL` origin: the Privilege overview dashboard, the Ping logs (all products) dashboard, Discover on the `ping-logs` data view (last 30 days), Security detection rules, and the Detection rule monitoring dashboard. The first two links are now labelled Privilege logs dashboard and Discover on Privilege logs.
+- Fixed: the **Denials and holds** query counted AI Guard denials and could count a hold more than once. It is now policy decisions only (`Index : "policy-decision-log" and privilege.decision : ("deny" or "hitl")`); its note points to the AI Guard query and says the overview dashboard counts each hold once by request id.
+
 - Measured: accepted A2A calls are shipped to OpenSearch (Received HTTP request documents), so an A2A allow is visible there although the gateway pod log has no allow line; a document means accepted and handed on, not succeeded.
 
 - Added: the HITL service as a fifteenth source (receipt verification), the Ping Gateway authorize decision lines (DECISION PERMIT obligation=hitl, INDETERMINATE HITL challenge minted), and measured PingFederate audit and admin-api and Gateway access-audit lines now on stdout (AI-DEMO2 #3437). Alloy ships ten containers. All measured 2026-11-08.
