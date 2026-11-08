@@ -94,7 +94,7 @@ test('Privilege sources: stdout containers are filtered by exact name, the gatew
   assert.doesNotMatch(selector.replace(/\\"/g, ''), /\\/, 'no backslash escapes inside the match selector');
   assert.match(alloy, /older_than\s*=\s*"15m"/, 'a restart does not replay old container history into Loki');
   assert.match(alloy, /stage\.limit[\s\S]*drop\s*=\s*true/, 'one noisy container cannot fill the small Loki');
-  assert.match(alloy, /stage\.replace[\s\S]*x1b/, 'terminal colour codes are stripped before Loki');
+  assert.match(alloy, /stage\.replace[\s\S]*expression\s*=\s*"\(\\\\x1b[^"]*\)"/, 'terminal colour codes are stripped before Loki, and the pattern is one capture group (stage.replace only replaces what a group matched)');
   const limit = /stage\.limit \{([^}]*)\}/.exec(alloy)[1];
   assert.doesNotMatch(limit, /drop_counter_reason/, 'stage.limit has no drop_counter_reason (only stage.drop does): Alloy refuses the file and the container exits');
   const priv = here('docker-compose.privilege.yml');

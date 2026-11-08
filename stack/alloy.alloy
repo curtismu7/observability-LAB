@@ -37,9 +37,9 @@ loki.source.docker "labs" {
 loki.process "recent" {
   forward_to = [loki.write.local.receiver]
   // The Ping Gateway and the banking MCP server colour their output (measured 2026-11-08: every Ping Gateway line and most banking
-  // MCP server lines carry ESC characters), which would show as escape text in the lab. Strip the colour codes before storing.
+  // MCP server lines carry ESC characters), which would show as escape text in the lab. Strip the colour codes before storing. stage.replace replaces only what a capture group matched, so the whole pattern is one group: without it the line is stored unchanged (measured 2026-11-08).
   stage.replace {
-    expression = "\\x1b\\[[0-9;]*[A-Za-z]"
+    expression = "(\\x1b\\[[0-9;]*[A-Za-z])"
     replace    = ""
   }
   stage.drop {

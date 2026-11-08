@@ -2,7 +2,7 @@
 
 ## 0.1.0 (unreleased)
 
-- Fixed: Alloy strips terminal colour codes (ESC sequences) before storing a line. The Ping Gateway and the banking MCP server colour their output, so in Real mode their lines showed as escape text.
+- Fixed: Alloy strips terminal colour codes (ESC sequences) before storing a line. The pattern is a capture group because stage.replace changes only what a group matched (the first version, without one, stored lines unchanged). The Ping Gateway and the banking MCP server colour their output, so in Real mode their lines showed as escape text.
 - Added: five sources, each sampled from the running service on 2026-11-08: the hosted gateway's OpenSearch events (seven kinds of JSON document, field names measured), the Prompt-Guard sidecar's verdict lines, the banking MCP server (header line plus indented context lines carrying the trace id), the LLM proxy's routing lines, and the authz server (each decision printed twice, readable and JSON). Real PingFederate (server log on stdout, half DEBUG) and Ping Gateway (a repeating router ERROR) lines added to the two existing products. Not added: weather, Brave, audit, HITL, agent-service (start-up lines only).
 - Added: Alloy ships the five local services in Real mode (exact container names), with a rate limit on the whole pipeline; the compose test pins the names and the limit stage.
 - Added: a seventh source, the Privilege hosted gateway (`agentless-mcpgw`), with six line shapes measured on 2026-11-08: who is calling, which app, forwarded to the backend (the only sign of an allowed call), refused by policy (level info), policy-evaluation noise, and a guardrail block. Ids and hostnames are placeholders.
