@@ -6,6 +6,8 @@ import { visible } from "../safeText";
 
 export const DEFAULT_QUERY = '{service=~"pingone-webhook|pingfederate|ping-gateway"}';
 const PRODUCT_NAMES = { pingone: "PingOne", pingfederate: "PingFederate", pinggateway: "Ping Gateway", phosted: "Privilege hosted gateway", pevents: "Privilege gateway events", pguard: "Prompt-Guard sidecar", mcpbank: "Banking MCP server", llmproxy: "LLM proxy", authz: "Authz server", psiem: "Privilege SIEM", mcpweather: "Weather MCP server", hitl: "HITL service", unknown: "Other" };
+// The Ping products (the Privilege family included). Anything else in the stream is an AI-DEMO2 service or unlabelled.
+const PING_PRODUCTS = new Set(["pingone", "pingfederate", "pinggateway", "privilege", "pgateway", "phosted", "pevents", "pguard", "psiem"]);
 const LEVEL_CLASS = { error: "tag tag--deny", fatal: "tag tag--deny", warn: "tag tag--warn", warning: "tag tag--warn", info: "tag", debug: "tag tag--quiet" };
 const clock = (iso) => iso.slice(11, 19);
 // The SIEM's events are sparse (admin changes), so its queries can look back days; Loki and the mock keep their 30 minutes.
@@ -37,6 +39,7 @@ export default function LogStream({ story, info, dataSignal, requestedId, onSele
   // Clicking to select text in a line must not collapse it.
   const clicked = (id) => { if (window.getSelection?.()?.toString()) return; toggle(id); };
   const real = info?.mode === "real";
+  const productName = useCallback((id) => story?.products?.find((p) => p.id === id)?.name || PRODUCT_NAMES[id] || id, [story]);
 
   const load = useCallback(async (q) => {
     const mine = ++seq.current;
@@ -71,7 +74,10 @@ export default function LogStream({ story, info, dataSignal, requestedId, onSele
   }, [requestedId, story]);
 
   const shown = useMemo(() => (result?.entries || []).filter((e) => (product === "all" || e.product === product) && (level === "all" || e.level === level)), [result, product, level]);
-  const products = useMemo(() => [...new Set((result?.entries || []).map((e) => e.product))], [result]);
+  // Line count per product in this result, for the dropdown.
+  const productCounts = useMemo(() => (result?.entries || []).reduce((m, e) => m.set(e.product, (m.get(e.product) || 0) + 1), new Map()), [result]);
+  const pingOptions = [...productCounts.keys()].filter((p) => PING_PRODUCTS.has(p));
+  const otherOptions = [...productCounts.keys()].filter((p) => !PING_PRODUCTS.has(p));
   const levels = useMemo(() => [...new Set((result?.entries || []).map((e) => e.level))], [result]);
 
   return (
@@ -112,10 +118,21 @@ export default function LogStream({ story, info, dataSignal, requestedId, onSele
         {result && (
           <>
             <p className="muted" data-testid="count" role="status">{result.count} line(s){result.truncated ? " (more exist; showing the newest)" : ""} from the {result.source === "real" ? (askingSiem(query) ? "REAL Privilege SIEM (Elasticsearch)" : "REAL Loki") : "MOCK store"}{result.source === "mock" && !result.relabel ? "; the relabel rule is OFF" : ""}.</p>
-            <div className="seg" role="group" aria-label="Filter shown lines by product">
-              <button type="button" aria-pressed={product === "all"} onClick={() => setProduct("all")}>All products</button>
-              {products.map((p) => <button key={p} type="button" aria-pressed={product === p} onClick={() => setProduct(p)}>{PRODUCT_NAMES[p] || p}</button>)}
-            </div>
+            <label className="inline pfilter">Ping products
+              <select value={product} onChange={(e) => setProduct(e.target.value)} data-testid="product-filter">
+                <option value="all">All products ({result.entries.length})</option>
+                {pingOptions.length > 0 && (
+                  <optgroup label="Ping products">
+                    {pingOptions.map((p) => <option key={p} value={p}>{productName(p)} ({productCounts.get(p)})</option>)}
+                  </optgroup>
+                )}
+                {otherOptions.length > 0 && (
+                  <optgroup label="Other services">
+                    {otherOptions.map((p) => <option key={p} value={p}>{productName(p)} ({productCounts.get(p)})</option>)}
+                  </optgroup>
+                )}
+              </select>
+            </label>
             <div className="seg" role="group" aria-label="Filter shown lines by level">
               <button type="button" aria-pressed={level === "all"} onClick={() => setLevel("all")}>All levels</button>
               {levels.map((l) => <button key={l} type="button" aria-pressed={level === l} onClick={() => setLevel(l)}>{l}</button>)}
@@ -135,7 +152,7 @@ export default function LogStream({ story, info, dataSignal, requestedId, onSele
                           onClick={() => clicked(e.id)}
                           onKeyDown={(ev) => { if (ev.target === ev.currentTarget && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); toggle(e.id); } }}>
                           <td><code>{clock(e.ts)}</code></td>
-                          <td>{PRODUCT_NAMES[e.product] || e.product}</td>
+                          <td>{productName(e.product)}</td>
                           <td><code>{visible(e.service)}</code></td>
                           <td><span className={LEVEL_CLASS[e.level] || "tag"}>{visible(e.level)}</span></td>
                           <td className="logline"><code>{visible(e.message)}</code>{e.traceId && <button type="button" className="linkish" title="Search this trace id" onClick={(ev) => { ev.stopPropagation(); traceSearch(); }}>trace</button>}</td>

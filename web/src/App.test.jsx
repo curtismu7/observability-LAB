@@ -303,13 +303,27 @@ describe("logs tab", () => {
     expect(table).toHaveTextContent("<img src=x onerror=alert(1)>");
     expect(table).toHaveTextContent("\\u202e");
     expect(screen.getByTestId("count")).toHaveTextContent("2 line(s) from the MOCK store");
-    await userEvent.click(screen.getByRole("button", { name: "Ping Gateway" }));
+    await userEvent.selectOptions(screen.getByLabelText("Ping products"), "pinggateway");
     expect(within(table).queryByText(/<img/)).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "All products" }));
+    await userEvent.selectOptions(screen.getByLabelText("Ping products"), "all");
     await userEvent.click(screen.getByRole("button", { name: "warn" }));
     expect(table).toHaveTextContent("<img");
     expect(within(table).queryByText("ok")).toBeNull();
     expect(screen.getByTestId("hops")).toHaveTextContent(/traceparent: 00-a{32}-1{16}-01/);
+  });
+  it("the Ping products dropdown shows counts, groups Ping products apart from other services, and uses the lab's product names", async () => {
+    const lines = [entry(1), entry(2), entry(3, { product: "pgateway", service: "ping-mcpgw", message: "level=info msg=x" }), entry(4, { product: "mcpbank", service: "mcp-server", message: "tracing span" })];
+    override["/api/scenarios"] = () => ({ ok: true, status: 200, json: async () => ({ ...STORY, products: [...STORY.products, { id: "pgateway", name: "PingOne Privilege (agent gateway)", service: "ping-mcpgw", container: "/c", how: "h", sources: [] }] }) });
+    override["/api/logs"] = async () => ({ ok: true, status: 200, json: async () => ({ source: "mock", query: "q", count: 4, truncated: false, relabel: true, traceId: null, hops: [], entries: lines }) });
+    await ready();
+    const select = screen.getByLabelText("Ping products");
+    const group = (label) => [...select.querySelectorAll(`optgroup[label="${label}"] option`)].map((o) => o.textContent);
+    expect(select.querySelector("option[value=all]")).toHaveTextContent("All products (4)");
+    expect(group("Ping products")).toEqual(["PingFederate (2)", "PingOne Privilege (agent gateway) (1)"]); // names come from the story, with line counts
+    expect(group("Other services")).toEqual(["Banking MCP server (1)"]); // not a Ping product; not in this test's story, so the older name map supplies the name
+    await userEvent.selectOptions(select, "pgateway");
+    expect(within(screen.getByTestId("log-table")).getAllByTestId("log-row")).toHaveLength(1);
+    expect(within(screen.getByTestId("log-table")).getByText("PingOne Privilege (agent gateway)")).toBeInTheDocument();
   });
   it("a bad query shows the server's reason, not a crash", async () => {
     await ready();

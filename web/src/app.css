@@ -33,6 +33,7 @@ textarea { width: 100%; font-family: var(--font-mono); display: block; margin: 4
 select:focus-visible, textarea:focus-visible, summary:focus-visible, pre:focus-visible, [role="tab"]:focus-visible { outline: 2px solid var(--th-status-info); outline-offset: 2px; }
 label { display: block; font-size: var(--font-size-sm); font-weight: 600; margin-top: 6px; }
 label.inline { display: inline-flex; margin-top: 0; font-weight: 400; }
+label.pfilter { gap: 8px; align-items: center; margin-right: 12px; font-weight: 600; }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--th-border); margin: 8px 0 12px; overflow-x: auto; }
 .tabs [role="tab"] { border-radius: var(--radius-md) var(--radius-md) 0 0; border-bottom: none; white-space: nowrap; }
 .tabs [role="tab"][aria-selected="true"] { border-color: var(--accent); font-weight: 700; background: var(--accent); color: var(--on-accent); box-shadow: none; }
