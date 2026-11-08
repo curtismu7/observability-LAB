@@ -68,7 +68,7 @@ const ready = async () => { render(<App />); await screen.findByText("Follow one
 
 describe("Privilege SIEM: Kibana link and the look-back window", () => {
   const SIEM = { service: "privilege-siem", configured: false, problem: "Set PRIVILEGE_SIEM_URL to a loopback Elasticsearch.", index: "ping-siem-events-v2", esPortForward: "kubectl port-forward svc/elasticsearch-siem 9200:9200",
-    kibana: { url: "http://localhost:5601", deepLink: "http://localhost:5601/app/discover#/?_a=(dataSource:(dataViewId:'privilege-logs',type:dataView))&_g=(time:(from:now-30d,to:now))", portForward: "kubectl --context us -n ping-devops-curtismuir port-forward svc/kibana-siem 5601:5601", settingValid: true } };
+    kibana: { url: "http://localhost:5601", deepLink: "http://localhost:5601/app/discover#/?_a=(dataSource:(dataViewId:'privilege-logs',type:dataView))&_g=(time:(from:now-30d,to:now))", portForward: "kubectl --context <your-context> -n <your-namespace> port-forward svc/kibana-siem 5601:5601", settingValid: true } };
   const WITH_PRIVILEGE = { ...STORY, products: [...STORY.products, { id: "phosted", name: "Privilege hosted gateway", service: "agentless-mcpgw", container: "/c", how: "h", sources: [] }, { id: "psiem", name: "Privilege SIEM", service: "privilege-siem", container: "/c2", how: "h2", sources: [] }] };
   const infoWith = (over = {}) => () => ({ ok: true, status: 200, json: async () => ({ mode: state.mode, source: state.mode, simulated: state.mode === "mock", realAvailable: true, realHint: null, siem: SIEM, ...over }) });
 
@@ -121,7 +121,7 @@ describe("Privilege SIEM: Kibana link and the look-back window", () => {
 
 describe("Privilege logs in Kibana: queries to copy", () => {
   const KIBANA = {
-    url: "http://localhost:5601", settingValid: true, portForward: "kubectl --context us -n ping-devops-curtismuir port-forward svc/kibana-siem 5601:5601",
+    url: "http://localhost:5601", settingValid: true, portForward: "kubectl --context <your-context> -n <your-namespace> port-forward svc/kibana-siem 5601:5601",
     dashboard: "http://localhost:5601/app/dashboards#/view/privilege-logs-dashboard", discover: "http://localhost:5601/app/discover#/?_a=(x)", deepLink: "http://localhost:5601/app/discover#/?_a=(x)",
     savedSearches: [{ id: "privilege-all", title: "All Privilege events", url: "http://localhost:5601/app/discover#/view/privilege-all" }, { id: "privilege-aiguard", title: "AI Guard", url: "http://localhost:5601/app/discover#/view/privilege-aiguard" }],
     queries: [

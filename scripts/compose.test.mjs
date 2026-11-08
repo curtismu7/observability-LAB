@@ -123,3 +123,22 @@ test('the SIEM and link settings are passed through from the shell, with no comm
     assert.match(compose, new RegExp(`^      ${name}: \\$\\{${name}:-\\}$`, 'm'), `${name} defaults to empty`);
   }
 });
+
+test('start mode: compose replaces the image MODE=mock with OBS_MODE, empty when unset, so a configured Real starts in Real', async () => {
+  const compose = here('docker-compose.yml');
+  const lab = new RegExp('^  observability-lab:\\n((?:    .*\\n|\\n)+)', 'm').exec(compose)?.[1] ?? '';
+  assert.match(lab, /^      MODE: \$\{OBS_MODE:-\}$/m, 'MODE comes from OBS_MODE with an empty default');
+  assert.match(here('Dockerfile'), /^ENV .*\bMODE=mock\b/m, 'the image default stays mock (rule 19) for a plain docker run');
+  // What the container sees with OBS_MODE unset: an empty MODE, which config.js treats like unset.
+  const { modeFrom } = await import('../server/src/config.js');
+  assert.equal(modeFrom({ MODE: '' }), 'mock', 'no Real settings: Mock');
+  assert.equal(modeFrom({ MODE: '', OBS_LOKI_URL: 'http://127.0.0.1:3100' }), 'real', 'Real settings: Real');
+  assert.equal(modeFrom({ MODE: 'mock', OBS_LOKI_URL: 'http://127.0.0.1:3100' }), 'mock', 'the image default alone would have forced Mock');
+});
+
+test('the kube context and namespace for the port-forward hints pass through with empty defaults', () => {
+  const compose = here('docker-compose.yml');
+  for (const name of ['OBS_KUBE_CONTEXT', 'OBS_KUBE_NAMESPACE']) {
+    assert.match(compose, new RegExp(`^      ${name}: \\$\\{${name}:-\\}$`, 'm'), `${name} defaults to empty`);
+  }
+});
