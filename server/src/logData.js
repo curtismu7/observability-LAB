@@ -5,7 +5,7 @@
 
 export const TITLE = 'Observability Lab';
 export const INTRO = 'Ping products log in different ways. This lab follows a log line from the product to a searchable, alertable store, and shows what goes wrong when one small rule is missing.';
-export const BANNER = 'SIMULATED: seeded, synthetic log events for six Ping sources, a mock log store and mock alert rules. Nothing here reads a real product log or calls a real tenant. In Real mode only, it reads one loopback Loki that you configured.';
+export const BANNER = 'SIMULATED: seeded, synthetic log events for seven Ping sources, a mock log store and mock alert rules. Nothing here reads a real product log or calls a real tenant. In Real mode only, it reads one loopback Loki that you configured.';
 export const REAL_BANNER = 'REAL (read-only): log lines are read from the loopback Loki you configured; products, alert thresholds and the label lab still follow this lab\'s rules. Nothing is written to Loki.';
 
 // The collector's relabel rule, modelled on the AI-DEMO2 collector config (config.docker.alloy), with this lab's own prefix: strips Docker's leading "/" and the stack prefix.
@@ -62,6 +62,18 @@ export const PRODUCTS = [
       { id: 'mesh-error', title: 'Control-plane stream error', where: 'The gateway lost its stream to the Privilege control plane.', status: 'measured', sample: 'level=error msg="Error receiving from the stream: rpc error: code = Unavailable"', note: 'Shape measured on 2026-11-07 from the same AI-DEMO2 docker-compose.yml run; the text after code = Unavailable is cut here and no tenant or node ids are shown.' },
     ],
   },
+  {
+    id: 'phosted', name: 'PingOne Privilege (hosted gateway)', service: 'agentless-mcpgw', container: '/obs-demo-agentless-mcpgw',
+    how: 'The same gateway running in the SE cluster. Its log-tailer container prints the gateway log to stdout, so a collector that reads pod logs sees it (the in-cluster Loki does). It writes key=value lines. An agent-to-agent call leaves a trail that names the user, the agent client, the app and the backend. A refusal is one line; an allowed call has NO allow line, only the proxy line, so allow is the absence of a denial.',
+    sources: [
+      { id: 'caller-token', title: 'Who is calling', where: 'One line per request that arrived with an access token.', status: 'measured', sample: 'level=info msg="Access token found for user: <user-id>, client: main-agent"', note: 'Measured on 2026-11-08 from the hosted gateway pod log-tailer container (AI-DEMO2 pingone-privgateway-helm-main/agentless/agentless-mcpgw/templates/deployment.yaml prints the gateway log to stdout). Names the user and the agent client. The ids here are placeholders.' },
+      { id: 'resolved-host', title: 'Which app', where: 'Written for each request once the app is looked up.', status: 'measured', sample: 'level=info msg="[mcpgw] resolved host for app worker-agent: <app-host>:8643"', note: 'Measured on 2026-11-08 from the hosted gateway pod log-tailer container (AI-DEMO2 pingone-privgateway-helm-main/agentless/agentless-mcpgw/templates/deployment.yaml prints the gateway log to stdout). Names the app.' },
+      { id: 'proxying', title: 'Allowed: forwarded to the backend', where: 'Written when the policy check passed and the call is forwarded.', status: 'measured', sample: 'level=info msg="Proxying to: http://<backend>.svc.cluster.local"', note: 'Measured on 2026-11-08 from the hosted gateway pod log-tailer container (AI-DEMO2 pingone-privgateway-helm-main/agentless/agentless-mcpgw/templates/deployment.yaml prints the gateway log to stdout). There is no line that says allowed; this one is the evidence. The backend service address is in the line.' },
+      { id: 'policy-denied', title: 'Refused by policy', where: 'Written when the user has no policy for the app.', status: 'measured', sample: 'level=info msg="[mcpgw] policy denied <user-id> access to a2a app worker-agent (agent=true): principal {RefKind:User RefID:<b64>} does not have access to {RefKind:Application RefID:<b64>} object for HTTP action and  principal"', note: 'Measured on 2026-11-08 from the hosted gateway pod log-tailer container (AI-DEMO2 pingone-privgateway-helm-main/agentless/agentless-mcpgw/templates/deployment.yaml prints the gateway log to stdout). Level info, not warn or error, even though it is a denial. The RefID values are base64 of <tenant id>@@@default@@@<name or user id>, so the tenant and user ids can be read by anyone who can read the log.' },
+      { id: 'policy-eval', title: 'Policy evaluation (noise)', where: 'One line per policy checked; about fifteen per request in reality (the mock shows five).', status: 'measured', sample: 'level=info msg="Success: principal {RefKind:User RefID:<b64>} is in list {RefKind:...}"', note: 'Measured on 2026-11-08 from the hosted gateway pod log-tailer container (AI-DEMO2 pingone-privgateway-helm-main/agentless/agentless-mcpgw/templates/deployment.yaml prints the gateway log to stdout). The bulk of the gateway log for an agent call. A rule that counts lines here counts policies, not requests.' },
+      { id: 'aiguard-blocked', title: 'Guardrail blocked a response', where: 'Written when the AI guard blocks an MCP response.', status: 'measured', sample: 'level=warning msg="aiguard: blocked mcp response client=<client> category=malicious_content"', note: 'Measured on 2026-11-08 from the hosted gateway pod log-tailer container (AI-DEMO2 pingone-privgateway-helm-main/agentless/agentless-mcpgw/templates/deployment.yaml prints the gateway log to stdout). The one line in this set at level warning. The verdict also reaches OpenSearch as a JSON record (see the Privilege logging plan).' },
+    ],
+  },
 ];
 
 // The alert rules. The ratio-plus-traffic-floor idea comes from AI-DEMO2 monitoring/alerts.yml (whose door rule is a 4xx ratio and which also
@@ -104,7 +116,7 @@ export const TOOLS = [
 ];
 
 export const TALK_TRACK = [
-  { id: 'say-first', title: 'Say this first', say: 'Everything on this screen is simulated: seeded log lines for six Ping sources and a mock store. The formats are illustrative. What is measured is the pipeline lesson, taken from the AI-DEMO2 monitoring stack.' },
+  { id: 'say-first', title: 'Say this first', say: 'Everything on this screen is simulated: seeded log lines for seven Ping sources and a mock store. The formats are illustrative. What is measured is the pipeline lesson, taken from the AI-DEMO2 monitoring stack.' },
   { id: 'join', title: 'One sign-in, three products', say: 'Search the client id. One sign-in shows up in PingOne, PingFederate and the gateway. That shared id is the whole join; without it you are lining up clocks.' },
   { id: 'burst', title: 'A burst, not a blip', say: 'Press Simulate burst. Eight failed sign-ins in two minutes and the rule fires. Two stray failures an hour never would.' },
   { id: 'ratio', title: 'Why a ratio', say: 'Look at the gateway 401s: lots of them, nothing is wrong. A spec-following client starts every session with one. So this lab\'s gateway rule uses a ratio of 5xx with a traffic floor, not a count of rejections.' },

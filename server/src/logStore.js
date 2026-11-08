@@ -1,4 +1,4 @@
-// The mock log store: a seeded, deterministic stream for the six sources, replayed relative to "now" so the
+// The mock log store: a seeded, deterministic stream for the seven sources, replayed relative to "now" so the
 // last 30 minutes are always populated, plus incidents injected per workspace. Messages keep {{cast}} tokens until read.
 // Pure: no I/O, no clock of its own (now is passed in).
 import { PRODUCTS } from './logData.js';
@@ -67,6 +67,18 @@ function buildBaseline() {
     push(at, 'pgateway', 'server-request', 'info', `level=info msg="[SERVER]  Content-Type: "`);
   }
   for (let i = 0; i < 2; i++) push(i * 9 * MIN + 47_000, 'pgateway', 'mesh-error', 'error', `level=error msg="Error receiving from the stream: rpc error: code = Unavailable"`);
+  // The hosted gateway: ten agent-to-agent requests, two of them refused. Per request, in the order the gateway writes them: who,
+  // which app, a few policy checks, then either the proxy line (allowed: there is no allow line) or the denial. Measured 2026-11-08.
+  for (let i = 0; i < 10; i++) {
+    const at = i * 150_000 + 11_000;
+    const denied = i === 2 || i === 7;
+    push(at + 9, 'phosted', 'caller-token', 'info', `level=info msg="Access token found for user: <user-id>, client: main-agent"`);
+    push(at + 8, 'phosted', 'resolved-host', 'info', `level=info msg="[mcpgw] resolved host for app worker-agent: <app-host>:8643"`);
+    for (let k = 0; k < 5; k++) push(at + 7 - k, 'phosted', 'policy-eval', 'info', `level=info msg="Success: principal {RefKind:User RefID:<b64>} is in list {RefKind:Policy RefID:<b64>}"`);
+    if (denied) push(at, 'phosted', 'policy-denied', 'info', `level=info msg="[mcpgw] policy denied <user-id> access to a2a app worker-agent (agent=true): principal {RefKind:User RefID:<b64>} does not have access to {RefKind:Application RefID:<b64>} object for HTTP action and  principal"`);
+    else push(at, 'phosted', 'proxying', 'info', `level=info msg="Proxying to: http://<backend>.svc.cluster.local"`);
+  }
+  for (let i = 0; i < 2; i++) push(i * 8 * MIN + 95_000, 'phosted', 'aiguard-blocked', 'warn', `level=warning msg="aiguard: blocked mcp response client=<client> category=malicious_content"`);
   for (let i = 0; i < 15; i++) push(i * 2 * MIN + 15_000, 'mcp', 'gw-lines', 'info', `[GW] authz warm: ok ${20 + ((i * 7) % 25)}ms (http://authz.example:9001)`);
   return out.sort((a, b) => b.offsetMs - a.offsetMs).map((e, i) => ({ ...e, id: `base-${String(i).padStart(4, '0')}` }));
 }

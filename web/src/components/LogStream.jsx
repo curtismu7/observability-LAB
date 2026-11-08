@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Hops from "./Hops";
+import LineDetail from "./LineDetail";
 import { queryLogs, setRelabel, simulate } from "../api";
 import { visible } from "../safeText";
 
 export const DEFAULT_QUERY = '{service=~"pingone-webhook|pingfederate|ping-gateway"}';
-const PRODUCT_NAMES = { pingone: "PingOne", pingfederate: "PingFederate", pinggateway: "Ping Gateway", unknown: "Other" };
+const PRODUCT_NAMES = { pingone: "PingOne", pingfederate: "PingFederate", pinggateway: "Ping Gateway", phosted: "Privilege hosted gateway", unknown: "Other" };
 const LEVEL_CLASS = { error: "tag tag--deny", fatal: "tag tag--deny", warn: "tag tag--warn", warning: "tag tag--warn", info: "tag", debug: "tag tag--quiet" };
 const clock = (iso) => iso.slice(11, 19);
 
@@ -26,6 +27,10 @@ export default function LogStream({ story, info, dataSignal, requestedId, onSele
   const [level, setLevel] = useState("all");
   const [scenario, setScenario] = useState(null);
   const seq = useRef(0);
+  const [open, setOpen] = useState(() => new Set());
+  const toggle = (id) => setOpen((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  // Clicking to select text in a line must not collapse it.
+  const clicked = (id) => { if (window.getSelection?.()?.toString()) return; toggle(id); };
   const real = info?.mode === "real";
 
   const load = useCallback(async (q) => {
@@ -106,15 +111,24 @@ export default function LogStream({ story, info, dataSignal, requestedId, onSele
                 <thead><tr><th>Time (UTC)</th><th>Product</th><th>Service</th><th>Level</th><th>Line</th></tr></thead>
                 <tbody>
                   {shown.length === 0 && <tr><td colSpan={5} className="muted" data-testid="empty">No lines. {result.count === 0 && result.source === "mock" && !result.relabel ? "The lines still exist under the raw container name; nothing reported an error." : "Try a wider query."}</td></tr>}
-                  {shown.map((e) => (
-                    <tr key={e.id}>
-                      <td><code>{clock(e.ts)}</code></td>
-                      <td>{PRODUCT_NAMES[e.product] || e.product}</td>
-                      <td><code>{visible(e.service)}</code></td>
-                      <td><span className={LEVEL_CLASS[e.level] || "tag"}>{visible(e.level)}</span></td>
-                      <td className="logline"><code>{visible(e.message)}</code>{e.traceId && <button type="button" className="linkish" title="Search this trace id" onClick={() => { const q = `{service=~"pingone-webhook|pingfederate|ping-gateway"} |= "${e.traceId}"`; setDraft(q); setQuery(q); }}>trace</button>}</td>
-                    </tr>
-                  ))}
+                  {shown.map((e) => {
+                    const isOpen = open.has(e.id);
+                    const traceSearch = () => { const q = `{service=~"pingone-webhook|pingfederate|ping-gateway"} |= "${e.traceId}"`; setDraft(q); setQuery(q); };
+                    return (
+                      <Fragment key={e.id}>
+                        <tr className="logrow" tabIndex={0} aria-expanded={isOpen} data-testid="log-row" title={isOpen ? "Click to hide the details" : "Click for details"}
+                          onClick={() => clicked(e.id)}
+                          onKeyDown={(ev) => { if (ev.target === ev.currentTarget && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); toggle(e.id); } }}>
+                          <td><code>{clock(e.ts)}</code></td>
+                          <td>{PRODUCT_NAMES[e.product] || e.product}</td>
+                          <td><code>{visible(e.service)}</code></td>
+                          <td><span className={LEVEL_CLASS[e.level] || "tag"}>{visible(e.level)}</span></td>
+                          <td className="logline"><code>{visible(e.message)}</code>{e.traceId && <button type="button" className="linkish" title="Search this trace id" onClick={(ev) => { ev.stopPropagation(); traceSearch(); }}>trace</button>}</td>
+                        </tr>
+                        {isOpen && <tr className="logdetail"><td colSpan={5}><LineDetail entry={e} story={story} onTrace={traceSearch} /></td></tr>}
+                      </Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

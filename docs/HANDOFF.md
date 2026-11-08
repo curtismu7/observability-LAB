@@ -4,7 +4,7 @@
 
 ## What this lab is
 
-A standalone, simpler version of the AI-DEMO2 monitoring stack (collector, Loki, dashboards, alert rules) for six sources: PingOne, PingFederate, Ping Gateway, the Privilege node sensor (`procyon-nodesensor`), the Privilege agent gateway (`ping-mcpgw`) and the MCP gateway (`mcp-gateway`). The last three were added 2026-11-07 with shapes measured from a running AI-DEMO2 stack. The agent gateway writes its log to a FILE, not stdout, so AI-DEMO2's collector would not ship it (measured). See README.md for what it teaches. Tier Demo; ports 7800; catalog id D123 (owner's choice 2026-11-07; D122 belongs to a2a-lab).
+A standalone, simpler version of the AI-DEMO2 monitoring stack (collector, Loki, dashboards, alert rules) for seven sources: PingOne, PingFederate, Ping Gateway, the Privilege node sensor (`procyon-nodesensor`), the Privilege agent gateway (`ping-mcpgw`), the Privilege hosted gateway (`agentless-mcpgw`) and the MCP gateway (`mcp-gateway`). The last three were added 2026-11-07 with shapes measured from a running AI-DEMO2 stack. The agent gateway writes its log to a FILE, not stdout, so AI-DEMO2's collector would not ship it (measured). See README.md for what it teaches. Tier Demo; ports 7800; catalog id D123 (owner's choice 2026-11-07; D122 belongs to a2a-lab).
 
 ## State
 
