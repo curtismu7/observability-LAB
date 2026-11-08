@@ -59,7 +59,7 @@ loki.source.file "privilege" {
 loki.process "privilege" {
   forward_to = [loki.write.local.receiver]
   stage.match {
-    selector = "{service=\"ping-mcpgw\"} !~ \"authorization header missing|Invalid Authorization token|Error receiving from the stream|\\[SERVER\\]\""
+    selector = "{service=\"ping-mcpgw\"} !~ \"authorization header missing|Invalid Authorization token|Error receiving from the stream|[[]SERVER[]]\""
     action   = "drop"
   }
 }
