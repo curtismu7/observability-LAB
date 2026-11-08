@@ -3,7 +3,7 @@ import http from 'node:http';
 import test from 'node:test';
 import { KIBANA_PORT_FORWARD, kibanaFrom, realAvailableFrom, siemFrom, siemProblemFrom } from '../src/config.js';
 import { parseQuery } from '../src/logql.js';
-import { LIMITS, SiemError, createSiemClient, scrub } from '../src/siemClient.js';
+import { LIMITS, SiemError, createSiemClient, levelOfDoc, scrub } from '../src/siemClient.js';
 import { post, withServer } from './helpers.js';
 
 const T = { timeout: 20_000 };
@@ -180,5 +180,43 @@ test('through the app: Real with a wrong key says so in words, and Mock holds th
     const sw = await post(url, '/api/mode', { source: 'real' });
     assert.equal(sw.status, 409);
     // the SIEM asked for in Real with no settings: handled in a Real server below
+  }, { env: { MODE: 'mock' } });
+});
+
+test('level: the document\'s own Level wins, and a deny or a hold shows as warn even though the document says INFO', T, () => {
+  assert.equal(levelOfDoc({ Level: 'INFO' }), 'info');
+  assert.equal(levelOfDoc({ Level: 'WARNING' }), 'warn');
+  assert.equal(levelOfDoc({ Level: 'ERROR' }), 'error');
+  assert.equal(levelOfDoc({}), 'info', 'console documents carry no Level');
+  assert.equal(levelOfDoc({ Level: 'INFO', Data: { Decision: 'allow' } }), 'info');
+  assert.equal(levelOfDoc({ Level: 'INFO', Data: { Decision: 'deny' } }), 'warn');
+  assert.equal(levelOfDoc({ Level: 'INFO', Data: { Decision: 'hitl' } }), 'warn', 'a hold for approval is worth the eye');
+  assert.equal(levelOfDoc({ Level: 'ERROR', Data: { Decision: 'deny' } }), 'error', 'a worse level is kept');
+});
+
+test('the Mock SIEM sample has the measured shape: the four measured indices match their documented keys and value domains', T, async () => {
+  await withServer(async (url) => {
+    const story = await (await fetch(`${url}/api/scenarios`)).json();
+    const psiem = story.products.find((p) => p.id === 'psiem');
+    const byId = Object.fromEntries(psiem.sources.map((s) => [s.id, s]));
+    assert.deepEqual(['audit-log', 'proxy-audit-log', 'policy-decision-log', 'aiguard-log'].map((i) => byId[i].status), ['measured', 'measured', 'measured', 'measured']);
+    assert.equal(byId['agent-approval-log'].status, 'UNVERIFIED', 'a shape nobody sent stays UNVERIFIED');
+    for (const s of psiem.sources.filter((x) => x.status === 'measured')) assert.match(s.note, /privilege-logging-LAB session/, `${s.id} says who measured it`);
+    const logs = await (await fetch(`${url}/api/logs?query=${encodeURIComponent('{service="privilege-siem"}')}&limit=500`)).json();
+    const docs = logs.entries.map((e) => ({ e, d: JSON.parse(e.message) }));
+    for (const index of ['audit-log', 'proxy-audit-log', 'policy-decision-log', 'aiguard-log']) {
+      const sample = JSON.parse(byId[index].sample);
+      const seeded = docs.filter(({ d }) => d.Index === index);
+      assert.ok(seeded.length >= 3, `${index} is seeded`);
+      for (const { d } of seeded) assert.deepEqual(Object.keys(d).sort(), Object.keys(sample).sort(), `${index}: top-level keys equal the measured ones`);
+    }
+    const decisions = docs.filter(({ d }) => d.Index === 'policy-decision-log').map(({ d, e }) => ({ ...d.Data, level: e.level }));
+    assert.deepEqual([...new Set(decisions.map((x) => x.Decision))].sort(), ['allow', 'deny', 'hitl']);
+    assert.ok(decisions.every((x) => ['policy_decision', 'policy_approval_required', 'policy_approval_released'].includes(x.Event) && x.Flow === 'mcp' && ['User', 'NonHumanIdentity'].includes(x.PrincipalKind)));
+    assert.ok(decisions.some((x) => !x.AgentKey) && decisions.some((x) => x.AgentKey), 'AgentKey is missing or empty on some, as measured');
+    assert.ok(decisions.filter((x) => x.Decision !== 'allow').every((x) => x.level === 'warn') && decisions.filter((x) => x.Decision === 'allow').every((x) => x.level === 'info'));
+    assert.ok(docs.filter(({ d }) => d.Index === 'aiguard-log').every(({ d, e }) => d.Level === 'WARNING' && e.level === 'warn'));
+    assert.ok(docs.every(({ d }) => ['console', 'runtime'].includes(d.privilege_event_kind)));
+    assert.ok(!/[0-9a-f]{8}-[0-9a-f]{4}-/.test(logs.entries.map((e) => e.message).join('')), 'placeholders only');
   }, { env: { MODE: 'mock' } });
 });
