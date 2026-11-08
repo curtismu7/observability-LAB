@@ -1,5 +1,7 @@
+import { useState } from "react";
 import PrivilegeKibana from "./PrivilegeKibana";
 import { visible } from "../safeText";
+import { PING_PRODUCTS } from "../products";
 
 const STATUS_CLASS = { measured: "tag tag--ok", inferred: "tag", UNVERIFIED: "tag tag--warn" };
 
@@ -41,12 +43,31 @@ function SiemSetup({ siem }) {
 }
 
 export default function Products({ story, info }) {
+  const [product, setProduct] = useState("all");
+  const shown = product === "all" ? story.products : story.products.filter((p) => p.id === product);
+  const pingProducts = story.products.filter((p) => PING_PRODUCTS.has(p.id));
+  const otherProducts = story.products.filter((p) => !PING_PRODUCTS.has(p.id));
   return (
     <div className="products">
       <p className="muted">Each product logs differently. Line shapes are illustrative unless a source is named; the status tag says which.</p>
       <PrivilegeKibana kibana={info?.siem?.kibana} />
+      <label className="inline pfilter">Ping products
+        <select value={product} onChange={(e) => setProduct(e.target.value)} data-testid="products-filter">
+          <option value="all">All products</option>
+          {pingProducts.length > 0 && (
+            <optgroup label="Ping products">
+              {pingProducts.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </optgroup>
+          )}
+          {otherProducts.length > 0 && (
+            <optgroup label="Other services">
+              {otherProducts.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </optgroup>
+          )}
+        </select>
+      </label>
       <div className="cards">
-        {story.products.map((p) => (
+        {shown.map((p) => (
           <section key={p.id} className="panel" aria-labelledby={`p-${p.id}`} data-testid={`product-${p.id}`}>
             <h2 id={`p-${p.id}`}>{p.name}</h2>
             <p>{p.how}</p>
