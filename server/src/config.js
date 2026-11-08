@@ -74,14 +74,48 @@ export function siemProblemFrom(env = process.env) {
   return siemFrom(env) ? null : 'PRIVILEGE_SIEM_READ_APIKEY does not look like an Elasticsearch API key (8 to 512 characters of A-Z a-z 0-9 + / = _ : -).';
 }
 
-// The Kibana link for the same events. The origin comes from a setting (default the usual port-forward); it is an anchor only: the
-// lab never calls it. Returns the link, the port-forward command, and whether the configured origin was usable.
+// The Kibana links for the same events: Discover, the dashboard, five saved searches and seven ready-made KQL queries. The origin comes
+// from a setting (default the usual port-forward); these are anchors only, the lab never calls Kibana. `Index` is the source index,
+// `privilege_event_kind` is console or runtime, and the privilege.* names are Kibana runtime fields over `Data` (defined in Kibana).
+export const KIBANA_DATA_VIEW = 'privilege-logs';
+export const KIBANA_DASHBOARD_ID = 'privilege-logs-dashboard';
+export const KIBANA_SAVED_SEARCHES = [
+  { id: 'privilege-all', title: 'All Privilege events' },
+  { id: 'privilege-runtime', title: 'Runtime events' },
+  { id: 'privilege-console', title: 'Console changes' },
+  { id: 'privilege-decisions', title: 'Policy decisions' },
+  { id: 'privilege-aiguard', title: 'AI Guard' },
+];
+export const KIBANA_QUERIES = [
+  { id: 'runtime', title: 'All runtime', kql: 'privilege_event_kind : "runtime"' },
+  { id: 'console', title: 'All console', kql: 'privilege_event_kind : "console"' },
+  { id: 'decisions', title: 'Decisions', kql: 'Index : "policy-decision-log"', note: 'Requirement 9: every policy decision.' },
+  { id: 'runtime-decisions', title: 'Runtime with a decision', kql: 'privilege_event_kind : "runtime" and Index : "policy-decision-log"' },
+  { id: 'denials-holds', title: 'Denials and holds', kql: 'privilege.decision : ("deny" or "hitl")' },
+  { id: 'aiguard', title: 'AI Guard', kql: 'privilege_event_kind : "runtime" and Index : "aiguard-log"', note: 'A query on a field only AI Guard events have, such as privilege.client : *, empties the decision panels on the dashboard, by design.' },
+  { id: 'gateway-http', title: 'Gateway HTTP', kql: 'Index : "proxy-audit-log"' },
+];
+export const KIBANA_FIELD_NOTES = [
+  '`privilege_event_kind` is console or runtime; `Index` is the source index.',
+  'The privilege.* fields (user, agent_key, tool, decision, reason, app, event, principal_kind, client, category) are Kibana runtime fields over `Data`.',
+];
+// Kibana keeps the state in the URL as Rison: a string is single-quoted, with ! written !! and a quote written !'. Encoded so the whole link is safe to paste.
+export const rison = (s) => `'${s.replace(/!/g, '!!').replace(/'/g, "!'")}'`;
+
 export function kibanaFrom(env = process.env) {
   const configured = env.PRIVILEGE_KIBANA_URL ? plainOrigin(env.PRIVILEGE_KIBANA_URL, { loopbackOnly: false }) : null;
   const origin = configured || SIEM_DEFAULTS.kibana;
+  const view = `dataSource:(dataViewId:'${KIBANA_DATA_VIEW}',type:dataView)`;
+  const time = '_g=(time:(from:now-30d,to:now))';
+  const discover = `${origin}/app/discover#/?_a=(${view})&${time}`;
   return {
     url: origin,
-    deepLink: `${origin}/app/discover#/?_a=(dataSource:(dataViewId:'privilege-logs',type:dataView))&_g=(time:(from:now-30d,to:now))`,
+    deepLink: discover,
+    discover,
+    dashboard: `${origin}/app/dashboards#/view/${KIBANA_DASHBOARD_ID}`,
+    savedSearches: KIBANA_SAVED_SEARCHES.map((s) => ({ ...s, url: `${origin}/app/discover#/view/${s.id}` })),
+    queries: KIBANA_QUERIES.map((qy) => ({ ...qy, runUrl: `${origin}/app/discover#/?_a=(${view},query:(language:kuery,query:${encodeURIComponent(rison(qy.kql))}))&${time}` })),
+    fieldNotes: KIBANA_FIELD_NOTES,
     portForward: KIBANA_PORT_FORWARD,
     settingValid: !env.PRIVILEGE_KIBANA_URL || configured !== null,
   };

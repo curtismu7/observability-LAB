@@ -119,6 +119,82 @@ describe("Privilege SIEM: Kibana link and the look-back window", () => {
   });
 });
 
+describe("Privilege logs in Kibana: queries to copy", () => {
+  const KIBANA = {
+    url: "http://localhost:5601", settingValid: true, portForward: "kubectl --context us -n ping-devops-curtismuir port-forward svc/kibana-siem 5601:5601",
+    dashboard: "http://localhost:5601/app/dashboards#/view/privilege-logs-dashboard", discover: "http://localhost:5601/app/discover#/?_a=(x)", deepLink: "http://localhost:5601/app/discover#/?_a=(x)",
+    savedSearches: [{ id: "privilege-all", title: "All Privilege events", url: "http://localhost:5601/app/discover#/view/privilege-all" }, { id: "privilege-aiguard", title: "AI Guard", url: "http://localhost:5601/app/discover#/view/privilege-aiguard" }],
+    queries: [
+      { id: "decisions", title: "Decisions", kql: 'Index : "policy-decision-log"', note: "Requirement 9: every policy decision.", runUrl: "http://localhost:5601/app/discover#/?_a=(run-decisions)" },
+      { id: "denials-holds", title: "Denials and holds", kql: 'privilege.decision : ("deny" or "hitl")', runUrl: "http://localhost:5601/app/discover#/?_a=(run-denials)" },
+    ],
+    fieldNotes: ["`privilege_event_kind` is console or runtime; `Index` is the source index."],
+  };
+  const open = async (kibana = KIBANA) => {
+    override["/api/info"] = () => ({ ok: true, status: 200, json: async () => ({ mode: "mock", source: "mock", simulated: true, realAvailable: true, realHint: null, siem: { service: "privilege-siem", configured: false, problem: "x", index: "i", esPortForward: "p", kibana } }) });
+    const user = userEvent.setup();
+    await ready();
+    await user.click(screen.getByRole("tab", { name: "Products" }));
+    return { user, panel: await screen.findByTestId("kibana-panel") };
+  };
+
+  it("lists the dashboard, Discover, the saved searches and the tunnel command", async () => {
+    const { panel } = await open();
+    expect(within(panel).getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", KIBANA.dashboard);
+    expect(within(panel).getByRole("link", { name: "Discover (last 30 days)" })).toHaveAttribute("href", KIBANA.discover);
+    const saved = within(within(panel).getByTestId("saved-searches")).getAllByRole("link");
+    expect(saved.map((a) => a.textContent)).toEqual(["All Privilege events", "AI Guard"]);
+    expect(saved[1]).toHaveAttribute("href", KIBANA.savedSearches[1].url);
+    expect(within(panel).getByText(KIBANA.portForward)).toBeInTheDocument();
+    for (const a of within(panel).getAllByRole("link")) expect(a).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("each query shows its KQL, a Copy button that copies exactly that text, and a Run in Discover link", async () => {
+    const { user, panel } = await open();
+    const row = within(panel).getByTestId("kql-denials-holds");
+    expect(within(row).getByText('privilege.decision : ("deny" or "hitl")')).toBeInTheDocument();
+    expect(within(row).getByRole("link", { name: "Run Denials and holds in Discover" })).toHaveAttribute("href", "http://localhost:5601/app/discover#/?_a=(run-denials)");
+    await user.click(within(row).getByRole("button", { name: "Copy the query Denials and holds" }));
+    expect(await navigator.clipboard.readText()).toBe('privilege.decision : ("deny" or "hitl")');
+    expect(within(row).getByRole("button", { name: "Copy the query Denials and holds" })).toHaveTextContent("Copied");
+    expect(within(panel).getByText("Requirement 9: every policy decision.")).toBeInTheDocument();
+    await user.click(within(panel).getByRole("button", { name: "Copy the port-forward command" }));
+    expect(await navigator.clipboard.readText()).toBe(KIBANA.portForward);
+  });
+
+  it("a clipboard call that hangs falls back to the selection copy, and one that fails says so", async () => {
+    const { copyText } = await import("./components/PrivilegeKibana");
+    vi.useFakeTimers();
+    const hang = { clipboard: { writeText: () => new Promise(() => {}) } };
+    Object.defineProperty(navigator, "clipboard", { value: hang.clipboard, configurable: true });
+    document.execCommand = vi.fn(() => true);
+    const pending = copyText("kql text");
+    await vi.advanceTimersByTimeAsync(1600);
+    expect(await pending).toBe(true);
+    expect(document.execCommand).toHaveBeenCalledWith("copy");
+    document.execCommand = vi.fn(() => { throw new Error("blocked"); });
+    const failed = copyText("kql text");
+    await vi.advanceTimersByTimeAsync(1600);
+    expect(await failed).toBe(false);
+    vi.useRealTimers();
+  });
+
+  it("field notes render the backticked names as code, and a bad PRIVILEGE_KIBANA_URL is said out loud", async () => {
+    const { panel } = await open({ ...KIBANA, settingValid: false });
+    expect(within(panel).getByText("privilege_event_kind").tagName).toBe("CODE");
+    expect(within(panel).getByText(/PRIVILEGE_KIBANA_URL is not usable/)).toBeInTheDocument();
+  });
+
+  it("without Kibana information there is no panel (an older server)", async () => {
+    override["/api/info"] = () => ({ ok: true, status: 200, json: async () => ({ mode: "mock", source: "mock", simulated: true, realAvailable: true, realHint: null }) });
+    const user = userEvent.setup();
+    await ready();
+    await user.click(screen.getByRole("tab", { name: "Products" }));
+    await screen.findByTestId("product-pingfederate");
+    expect(screen.queryByTestId("kibana-panel")).toBeNull();
+  });
+});
+
 describe("log lines open on click", () => {
   it("a line expands to show its details and collapses again; the table keeps its rows", async () => {
     const user = userEvent.setup();
