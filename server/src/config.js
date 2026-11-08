@@ -3,6 +3,9 @@
 // loopback (for example the AI-DEMO2 observability profile publishes it on 127.0.0.1:3100): the lab's netguard
 // refuses every non-loopback socket, so a remote Loki is reported as "not configured" with the reason, never reached.
 import { isLoopbackHost } from './safety.js';
+import { SECURITY_ALERTS_PATH, discoverUrl, rison } from './searches.js';
+
+export { rison };
 
 // The Loki base URL if Real is usable, else null. Only the PRESENCE and validity are ever reported, never a credential.
 export function lokiUrlFrom(env = process.env) {
@@ -109,26 +112,37 @@ export const KIBANA_FIELD_NOTES = [
   '`privilege_event_kind` is console or runtime; `Index` is the source index.',
   'The privilege.* fields (user, agent_key, tool, decision, reason, app, event, principal_kind, client, category) are Kibana runtime fields over `Data`.',
 ];
-// Kibana keeps the state in the URL as Rison: a string is single-quoted, with ! written !! and a quote written !'. Encoded so the whole link is safe to paste.
-export const rison = (s) => `'${s.replace(/!/g, '!!').replace(/'/g, "!'")}'`;
+// rison and discoverUrl live in searches.js, shared with the web app's Searches tab, so every Discover link comes from one helper.
 
 export function kibanaFrom(env = process.env) {
   const configured = env.PRIVILEGE_KIBANA_URL ? plainOrigin(env.PRIVILEGE_KIBANA_URL, { loopbackOnly: false }) : null;
   const origin = configured || SIEM_DEFAULTS.kibana;
-  const viewOf = (id) => `dataSource:(dataViewId:'${id}',type:dataView)`;
-  const view = viewOf(KIBANA_DATA_VIEW);
-  const time = '_g=(time:(from:now-30d,to:now))';
-  const discover = `${origin}/app/discover#/?_a=(${view})&${time}`;
+  const discover = discoverUrl(origin, KIBANA_DATA_VIEW);
   return {
     url: origin,
     deepLink: discover,
     discover,
     dashboard: `${origin}/app/dashboards#/view/${KIBANA_DASHBOARD_ID}`,
     savedSearches: KIBANA_SAVED_SEARCHES.map((s) => ({ ...s, url: `${origin}/app/discover#/view/${s.id}` })),
-    queries: KIBANA_QUERIES.map((qy) => ({ ...qy, runUrl: `${origin}/app/discover#/?_a=(${view},query:(language:kuery,query:${encodeURIComponent(rison(qy.kql))}))&${time}` })),
-    links: KIBANA_LINKS.map(({ path, discoverView, ...l }) => ({ ...l, url: discoverView ? `${origin}/app/discover#/?_a=(${viewOf(discoverView)})&${time}` : `${origin}${path}` })),
+    queries: KIBANA_QUERIES.map((qy) => ({ ...qy, runUrl: discoverUrl(origin, KIBANA_DATA_VIEW, qy.kql) })),
+    links: KIBANA_LINKS.map(({ path, discoverView, ...l }) => ({ ...l, url: discoverView ? discoverUrl(origin, discoverView) : `${origin}${path}` })),
+    securityAlerts: `${origin}${SECURITY_ALERTS_PATH}`,
     fieldNotes: KIBANA_FIELD_NOTES,
     portForward: KIBANA_PORT_FORWARD,
     settingValid: !env.PRIVILEGE_KIBANA_URL || configured !== null,
+  };
+}
+
+// The sibling labs the Searches tab links to. Loopback only (they are local Docker labs); a value that is not a plain loopback origin
+// falls back to the default and says so. Links only: the lab never calls them.
+export const LAB_LINK_DEFAULTS = { privilegeLogging: 'http://127.0.0.1:7801', fieldNotes: 'http://127.0.0.1:7804' };
+export function labLinksFrom(env = process.env) {
+  const one = (raw, def, hash = '') => {
+    const ok = raw ? plainOrigin(raw, { loopbackOnly: true }) : null;
+    return { url: `${ok || def}${hash ? `/${hash}` : ''}`, settingValid: !raw || ok !== null };
+  };
+  return {
+    privilegeLogging: one(env.PRIVILEGE_LOGGING_LAB_URL, LAB_LINK_DEFAULTS.privilegeLogging, '#privilege'),
+    fieldNotes: one(env.FIELD_NOTES_URL, LAB_LINK_DEFAULTS.fieldNotes),
   };
 }

@@ -102,3 +102,24 @@ test('Privilege sources: stdout containers are filtered by exact name, the gatew
   assert.match(priv, /external: true/, 'the volume belongs to AI-DEMO2; this lab never creates it');
   assert.doesNotMatch(priv, /^\s*ports:/m);
 });
+
+test('the siem profile: a loopback-only forwarder in the lab namespace, locked down, pinned, no host port, no logging flags', () => {
+  const compose = here('docker-compose.yml');
+  const b = new RegExp('^  siem-forwarder:\\n((?:    .*\\n|\\n)+)', 'm').exec(compose)?.[1] ?? '';
+  assert.ok(b, 'siem-forwarder service exists');
+  assert.match(b, /image: alpine\/socat:\d+\.\d+\.\d+\.\d+\n/, 'pinned to an exact version');
+  assert.match(b, /profiles: \["siem"\]/);
+  assert.match(b, /network_mode: "service:observability-lab"/);
+  assert.doesNotMatch(b, /^    ports:/m);
+  assert.match(b, /"TCP-LISTEN:9200,bind=127\.0\.0\.1,fork,reuseaddr"/, 'listens on loopback only inside the namespace');
+  assert.match(b, /"TCP:host\.docker\.internal:9200"/);
+  assert.doesNotMatch(b, /"-[dvx]/, 'no socat debug or verbose flags (they would print the traffic)');
+  for (const re of [/read_only: true/, /cap_drop: \[ALL\]/, /no-new-privileges:true/, /mem_limit: \d+m/, /user: "65534:65534"/]) assert.match(b, re);
+});
+
+test('the SIEM and link settings are passed through from the shell, with no committed value', () => {
+  const compose = here('docker-compose.yml');
+  for (const name of ['PRIVILEGE_SIEM_URL', 'PRIVILEGE_SIEM_INDEX', 'PRIVILEGE_SIEM_READ_APIKEY', 'PRIVILEGE_KIBANA_URL', 'PRIVILEGE_LOGGING_LAB_URL', 'FIELD_NOTES_URL']) {
+    assert.match(compose, new RegExp(`^      ${name}: \\$\\{${name}:-\\}$`, 'm'), `${name} defaults to empty`);
+  }
+});

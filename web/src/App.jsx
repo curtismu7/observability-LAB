@@ -5,6 +5,7 @@ import LabelLab from "./components/LabelLab";
 import Alerts from "./components/Alerts";
 import DiagramTab from "./components/DiagramTab";
 import TalkTrack from "./components/TalkTrack";
+import Searches from "./components/Searches";
 import { getJson, resetWorkspace, setMode } from "./api";
 
 export const TABS = [
@@ -13,6 +14,7 @@ export const TABS = [
   { id: "pipeline", label: "Pipeline" },
   { id: "label", label: "Label lab" },
   { id: "alerts", label: "Alerts" },
+  { id: "searches", label: "Searches" },
   { id: "talk", label: "Talk track" },
 ];
 // The banner is never blank: until /api/scenarios answers (or if it fails) it says the safe thing.
@@ -145,6 +147,7 @@ export default function App() {
               {tab === "pipeline" && <DiagramTab vertical={vertical} resetSignal={dataSignal} />}
               {tab === "label" && <LabelLab story={story} info={info} dataSignal={dataSignal} onChanged={bump} />}
               {tab === "alerts" && <Alerts info={info} dataSignal={dataSignal} onChanged={bump} />}
+              {tab === "searches" && <Searches info={info} />}
               {tab === "talk" && <TalkTrack talk={story.talkTrack} />}
             </>
           )}

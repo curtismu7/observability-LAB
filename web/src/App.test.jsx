@@ -433,3 +433,75 @@ describe("diagram edge labels", () => {
     expect(labelOffsets([])).toEqual([]);
   });
 });
+
+describe("Searches tab", () => {
+  const KIB = { url: "https://kibana.example:5601", settingValid: true, portForward: "pf-cmd", dashboard: "https://kibana.example:5601/app/dashboards#/view/privilege-logs-dashboard", securityAlerts: "https://kibana.example:5601/app/security/alerts",
+    links: [{ id: "privilege-overview", title: "Privilege overview", description: "d", url: "https://kibana.example:5601/app/dashboards#/view/privilege-overview" }, { id: "security-rules", title: "Security detection rules", url: "https://kibana.example:5601/app/security/rules" }] };
+  const LABS = { privilegeLogging: { url: "http://127.0.0.1:7801/#privilege", settingValid: true }, fieldNotes: { url: "http://127.0.0.1:7804", settingValid: false } };
+  const open = async (mode = "mock") => {
+    override["/api/info"] = () => ({ ok: true, status: 200, json: async () => ({ mode, source: mode, simulated: mode === "mock", realAvailable: true, realHint: null, siem: { service: "privilege-siem", configured: true, problem: null, index: "i", esPortForward: "p", kibana: KIB }, labLinks: LABS }) });
+    const user = userEvent.setup();
+    await ready();
+    await user.click(screen.getByRole("tab", { name: "Searches" }));
+    return { user, tab: await screen.findByTestId("searches") };
+  };
+
+  it("lists every group, the PingOne pending label, and the Mock note; the banner stays first", async () => {
+    const { tab } = await open();
+    for (const g of ["privilege", "all", "pingfederate", "pinggateway", "pingone"]) expect(within(tab).getByTestId(`search-group-${g}`)).toBeInTheDocument();
+    expect(within(within(tab).getByTestId("search-group-pingone")).getByTestId("pending")).toHaveTextContent("data appears once PingOne forwarding is live");
+    expect(within(tab).getByTestId("searches-mock-note")).toHaveTextContent("Mock: links point at your Kibana");
+    expect(screen.getByTestId("banner")).toBeInTheDocument();
+    expect(calls.some((c) => String(c.url).includes("kibana"))).toBe(false);
+  });
+
+  it("Real has no Mock note", async () => {
+    const { tab } = await open("real");
+    expect(within(tab).queryByTestId("searches-mock-note")).toBeNull();
+  });
+
+  it("a fixed search has Copy and Run in Discover on the configured Kibana origin", async () => {
+    const { user, tab } = await open();
+    const card = within(tab).getByTestId("search-priv-denials");
+    const kql = 'Index : "policy-decision-log" and privilege.decision : "deny"';
+    expect(within(card).getByTestId("kql")).toHaveTextContent(kql);
+    const run = within(card).getByRole("link", { name: "Run Policy denials in Discover" });
+    expect(run.getAttribute("href").startsWith("https://kibana.example:5601/app/discover#/?_a=(dataSource:(dataViewId:'privilege-logs'")).toBe(true);
+    expect(run).toHaveAttribute("rel", "noopener noreferrer");
+    await user.click(within(card).getByRole("button", { name: "Copy the query Policy denials" }));
+    expect(await navigator.clipboard.readText()).toBe(kql);
+  });
+
+  it("an input search refuses empty input, then escapes quotes and backslashes into one value", async () => {
+    const { user, tab } = await open();
+    const card = within(tab).getByTestId("search-priv-user");
+    expect(within(card).getByTestId("search-problem")).toHaveTextContent("Type a value first.");
+    expect(within(card).queryByRole("link")).toBeNull();
+    expect(within(card).queryByRole("button", { name: /Copy/ })).toBeNull();
+    await user.type(within(card).getByLabelText("User"), 'a"b\\c');
+    expect(within(card).getByTestId("kql")).toHaveTextContent('privilege.user : "a\\"b\\\\c"');
+    const href = within(card).getByRole("link", { name: "Run Everything one user did in Discover" }).getAttribute("href");
+    expect(decodeURIComponent(href)).toContain(`query:'privilege.user : "a\\"b\\\\c"'`);
+    await user.click(within(card).getByRole("button", { name: "Copy the query Everything one user did" }));
+    expect(await navigator.clipboard.readText()).toBe('privilege.user : "a\\"b\\\\c"');
+  });
+
+  it("a select search builds the query from the chosen option", async () => {
+    const { user, tab } = await open();
+    const card = within(tab).getByTestId("search-p1-service");
+    await user.selectOptions(within(card).getByLabelText("PingOne service"), "Admin config");
+    expect(within(card).getByTestId("kql")).toHaveTextContent('ping_product : "pingone" and ping_component : "Admin config"');
+  });
+
+  it("Links: Security Alerts, the two labs (a bad setting is said out loud) and the dashboards", async () => {
+    const { tab } = await open();
+    const links = within(tab).getByTestId("search-links");
+    expect(within(links).getByRole("link", { name: "Security Alerts" })).toHaveAttribute("href", KIB.securityAlerts);
+    expect(within(links).getByRole("link", { name: "privilege-logging-LAB: Privilege tab" })).toHaveAttribute("href", LABS.privilegeLogging.url);
+    expect(within(links).getByRole("link", { name: "field-notes-LAB" })).toHaveAttribute("href", LABS.fieldNotes.url);
+    expect(within(links).getByText(/FIELD_NOTES_URL is not a loopback origin/)).toBeInTheDocument();
+    expect(within(links).getByRole("link", { name: "Privilege logs dashboard" })).toHaveAttribute("href", KIB.dashboard);
+    expect(within(links).getByRole("link", { name: "Privilege overview" })).toBeInTheDocument();
+    expect(within(links).queryByRole("link", { name: "Security detection rules" })).toBeNull();
+  });
+});

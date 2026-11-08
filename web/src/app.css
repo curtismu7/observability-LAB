@@ -103,3 +103,9 @@ button[aria-pressed="true"]:hover:not(:disabled), [role="tab"][aria-selected="tr
 .linedetail dd .tag { margin: 0 6px 4px 0; }
 .linedetail pre.json { margin: 0; white-space: pre-wrap; }
 .linedetail .fieldtbl { margin-top: 0; }
+
+/* Searches tab */
+.search-group { margin: 16px 0; }
+.search-group > h2 { font-size: var(--font-size-lg); margin: 0 0 4px; }
+.search code[data-testid="kql"] { overflow-wrap: anywhere; white-space: pre-wrap; }
+.search input[type="text"] { min-width: 0; flex: 1 1 12ch; }

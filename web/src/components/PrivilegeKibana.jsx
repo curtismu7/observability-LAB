@@ -20,7 +20,7 @@ export async function copyText(text) {
   } catch { return false; }
 }
 
-function CopyButton({ text, label }) {
+export function CopyButton({ text, label }) {
   const [state, setState] = useState("idle");
   const timer = useRef(null);
   useEffect(() => () => clearTimeout(timer.current), []);

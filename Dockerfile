@@ -6,6 +6,8 @@ COPY web/package.json web/
 COPY server/package.json server/
 RUN npm ci
 COPY web web
+# The Searches tab imports the shared, dependency-free search catalog and Discover-link helper.
+COPY server/src/searches.js server/src/searches.js
 RUN npm run build -w web
 
 FROM node:26-alpine
