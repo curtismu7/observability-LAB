@@ -19,6 +19,7 @@ function Box({ data }) {
         </span>
       ))}
       {data.label}
+      {data.sub?.map((s, i) => <span key={i} className="pat-node__sub">{s}</span>)}
     </div>
   );
 }
@@ -60,7 +61,7 @@ function Canvas({ pattern, positions, onMove, stepper }) {
   const active = stepper.step >= 0 ? pattern.steps[stepper.step] : null;
   const nodes = pattern.nodes.map((n) => ({
     id: n.id, type: "box", position: positions[n.id], draggable: true,
-    data: { label: n.label, kind: n.kind, on: !!active && (active.from === n.id || active.to === n.id) },
+    data: { label: n.label, sub: n.sub, kind: n.kind, on: !!active && (active.from === n.id || active.to === n.id) },
   }));
   const offs = labelOffsets(pattern.steps);
   const edges = pattern.steps.map((s, i) => {

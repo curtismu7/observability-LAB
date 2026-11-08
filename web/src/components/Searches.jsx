@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { CopyButton } from "./PrivilegeKibana";
 import { visible } from "../safeText";
-import { SEARCH_GROUPS, SECURITY_ALERTS_PATH, SearchInputError, buildKql, searchRunUrl } from "../../../server/src/searches.js";
+import { SEARCH_GROUPS, SECURITY_ALERTS_PATH, SearchInputError, buildKql, optionOf, searchRunUrl } from "../../../server/src/searches.js";
 
 const external = { target: "_blank", rel: "noopener noreferrer" };
 export const DEFAULT_KIBANA = "http://localhost:5601";
 
 // One search: the question, an optional input that goes into the KQL as one quoted value, Copy and Run in Discover.
 function Search({ search, origin }) {
-  const first = search.input?.kind === "select" ? search.input.options[0] : "";
+  const first = search.input?.kind === "select" ? optionOf(search.input.options[0]).value : "";
   const [value, setValue] = useState(first);
   let kql = null; let problem = null;
   try { kql = buildKql(search, value); } catch (e) { if (e instanceof SearchInputError) problem = e.message; else throw e; }
@@ -23,7 +23,7 @@ function Search({ search, origin }) {
           <label htmlFor={inputId}>{search.input.label}</label>{" "}
           {search.input.kind === "select" ? (
             <select id={inputId} value={value} onChange={(e) => setValue(e.target.value)}>
-              {search.input.options.map((o) => <option key={o} value={o}>{o}</option>)}
+              {search.input.options.map(optionOf).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           ) : (
             <input id={inputId} type="text" value={value} maxLength={400} placeholder={search.input.placeholder} autoComplete="off" spellCheck={false}

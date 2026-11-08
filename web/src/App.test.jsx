@@ -17,7 +17,7 @@ const STORY = {
 };
 const DIAGRAM = {
   title: "Log pipeline", intro: "diagram intro",
-  nodes: [{ id: "pf", label: "PingFederate container", kind: "product", x: 0, y: 0 }, { id: "alloy", label: "Collector: discover + relabel to service", kind: "pipeline", x: 300, y: 0 }],
+  nodes: [{ id: "pf", label: "PingFederate container", kind: "product", x: 0, y: 0 }, { id: "alloy", label: "Collector: discover + relabel to service", kind: "pipeline", x: 300, y: 0, sub: ["Reads stdout", "Measured live 2026-11-08"] }],
   steps: [{ from: "pf", to: "alloy", label: "stdout", say: "The collector reads stdout." }, { from: "alloy", to: "pf", label: "back", say: "n" }],
 };
 const hop = (n) => ({ n, from: "browser", to: "lab", label: `hop ${n}`, traceparent: `00-${"a".repeat(32)}-${String(n).repeat(16)}-01`, request: `traceparent: 00-${"a".repeat(32)}-${String(n).repeat(16)}-01`, response: "200 OK" });
@@ -382,6 +382,7 @@ describe("products and pipeline", () => {
     await ready();
     await userEvent.click(screen.getByRole("tab", { name: "Pipeline" }));
     expect(await screen.findByText("Collector: discover + relabel to service")).toBeInTheDocument();
+    expect(screen.getByText("Measured live 2026-11-08")).toHaveClass("pat-node__sub");
     expect(calls.some((c) => c.url.startsWith("/api/diagram?vertical=retail&name=log-pipeline"))).toBe(true);
     await userEvent.click(screen.getByRole("button", { name: /simulate/i }));
     expect(await screen.findByTestId("pattern-now")).toHaveTextContent("Step 1: stdout");
@@ -489,8 +490,10 @@ describe("Searches tab", () => {
   it("a select search builds the query from the chosen option", async () => {
     const { user, tab } = await open();
     const card = within(tab).getByTestId("search-p1-service");
+    expect(within(card).getByTestId("kql")).toHaveTextContent('ping_product : "pingone" and ping_component : "sso"');
+    expect(within(within(card).getByLabelText("PingOne service")).getByRole("option", { name: "Governance (access requests, agreements)" })).toHaveValue("governance");
     await user.selectOptions(within(card).getByLabelText("PingOne service"), "Admin config");
-    expect(within(card).getByTestId("kql")).toHaveTextContent('ping_product : "pingone" and ping_component : "Admin config"');
+    expect(within(card).getByTestId("kql")).toHaveTextContent('ping_product : "pingone" and ping_component : "admin-config"');
   });
 
   it("Links: Security Alerts, the two labs (a bad setting is said out loud) and the dashboards", async () => {

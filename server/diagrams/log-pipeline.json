@@ -2,10 +2,10 @@
   "schema": "diagram-studio/1",
   "id": "log-pipeline",
   "title": "From a Ping product to a searchable, alertable log line",
-  "lede": "PingOne reaches the store through a webhook forwarder; PingFederate and the gateway are tailed from container stdout by a collector that relabels the container name into a service label; the viewer queries the store; rules watch logs and metrics. Mock only.",
+  "lede": "Two families of path. The original one (top): PingOne through a webhook forwarder, PingFederate and the gateway tailed from container stdout by a collector that relabels the container name, a Loki store, a viewer and alert rules; that stream is mock here. The paths below it reach Elasticsearch and Kibana: the Privilege SIEM export and logs bridge, a Vector collector on local Docker, and the PingOne webhook subscription. Each new box says whether it was measured.",
   "groups": {
     "product": {
-      "label": "Ping products (mock)",
+      "label": "Ping products",
       "color": "red"
     },
     "pipeline": {
@@ -91,6 +91,127 @@
       "group": "alert",
       "x": 900,
       "y": 320
+    },
+    {
+      "id": "vector",
+      "label": "Vector collector (local Docker)",
+      "group": "pipeline",
+      "x": -380,
+      "y": 480,
+      "sub": [
+        "Reads container logs; tags noise, masks secrets",
+        "Measured live 2026-11-08"
+      ]
+    },
+    {
+      "id": "agw",
+      "label": "Privilege agent gateway (local Docker)",
+      "group": "product",
+      "x": -380,
+      "y": 680,
+      "sub": [
+        "Writes a log file on local Docker",
+        "Measured live 2026-11-08"
+      ]
+    },
+    {
+      "id": "privgw",
+      "label": "Privilege hosted gateway + console",
+      "group": "product",
+      "x": 0,
+      "y": 840,
+      "sub": [
+        "Runtime calls and console admin changes",
+        "Measured live 2026-11-08"
+      ]
+    },
+    {
+      "id": "siem",
+      "label": "Privilege SIEM export",
+      "group": "pipeline",
+      "x": 420,
+      "y": 840,
+      "sub": [
+        "Console and runtime events, exported by Privilege",
+        "Measured live 2026-11-08"
+      ]
+    },
+    {
+      "id": "bridge",
+      "label": "Privilege logs bridge",
+      "group": "pipeline",
+      "x": 420,
+      "y": 1000,
+      "sub": [
+        "Copies what Privilege does not export",
+        "Measured live 2026-11-08"
+      ]
+    },
+    {
+      "id": "p1sub",
+      "label": "PingOne webhook subscription",
+      "group": "product",
+      "x": 0,
+      "y": 1160,
+      "sub": [
+        "All event types: SSO, MFA, DaVinci, Authorize, Protect, Verify ...",
+        "Being switched on: not measured yet"
+      ]
+    },
+    {
+      "id": "p1events",
+      "label": "pingone-events-LAB",
+      "group": "pipeline",
+      "x": 420,
+      "y": 1160,
+      "sub": [
+        "Receives the webhook, sets the service from the event type",
+        "Being switched on: not measured yet"
+      ]
+    },
+    {
+      "id": "es",
+      "label": "Elasticsearch (SIEM)",
+      "group": "store",
+      "x": 900,
+      "y": 840,
+      "sub": [
+        "ping-siem-events-v2 and ping-logs-*",
+        "Measured live 2026-11-08"
+      ]
+    },
+    {
+      "id": "kibana",
+      "label": "Kibana",
+      "group": "store",
+      "x": 1380,
+      "y": 840,
+      "sub": [
+        "Dashboards, saved searches, Security rules",
+        "Measured live 2026-11-08"
+      ]
+    },
+    {
+      "id": "loopfwd",
+      "label": "Loopback forwarder (siem profile)",
+      "group": "pipeline",
+      "x": 900,
+      "y": 1080,
+      "sub": [
+        "127.0.0.1:9200 inside the lab, read-only search",
+        "Measured live 2026-11-08"
+      ]
+    },
+    {
+      "id": "lab",
+      "label": "This lab: Real mode + Searches tab",
+      "group": "store",
+      "x": 1380,
+      "y": 1080,
+      "sub": [
+        "Reads the Privilege index; links searches into Kibana",
+        "Measured live 2026-11-08"
+      ]
     }
   ],
   "edges": [
@@ -143,6 +264,76 @@
       "source": "loki",
       "target": "rules",
       "label": "log-count rules"
+    },
+    {
+      "source": "pf",
+      "target": "vector",
+      "label": "container log"
+    },
+    {
+      "source": "gw",
+      "target": "vector",
+      "label": "container log"
+    },
+    {
+      "source": "agw",
+      "target": "vector",
+      "label": "log file"
+    },
+    {
+      "source": "vector",
+      "target": "es",
+      "label": "ping-logs-*"
+    },
+    {
+      "source": "privgw",
+      "target": "siem",
+      "label": "console + runtime events"
+    },
+    {
+      "source": "siem",
+      "target": "es",
+      "label": "ping-siem-events-v2"
+    },
+    {
+      "source": "privgw",
+      "target": "bridge",
+      "label": "decisions, AI Guard, approvals"
+    },
+    {
+      "source": "bridge",
+      "target": "es",
+      "label": "ping-siem-events-v2"
+    },
+    {
+      "source": "p1sub",
+      "target": "p1events",
+      "label": "webhook POST, every event type"
+    },
+    {
+      "source": "p1events",
+      "target": "es",
+      "label": "ping-logs-pingone"
+    },
+    {
+      "source": "es",
+      "target": "kibana",
+      "label": "search"
+    },
+    {
+      "source": "es",
+      "target": "loopfwd",
+      "label": "read-only _search"
+    },
+    {
+      "source": "loopfwd",
+      "target": "lab",
+      "label": "Privilege events"
+    },
+    {
+      "source": "lab",
+      "target": "kibana",
+      "label": "Discover links"
     }
   ],
   "steps": [
@@ -196,6 +387,104 @@
       "edges": [
         8,
         9
+      ]
+    },
+    {
+      "title": "Vector reads PingFederate",
+      "what": "A second collector, Vector on local Docker, reads the PingFederate container log. Measured live on 2026-11-08.",
+      "edges": [
+        10
+      ]
+    },
+    {
+      "title": "Vector reads PingGateway",
+      "what": "The same collector reads the PingGateway container log. Measured live on 2026-11-08.",
+      "edges": [
+        11
+      ]
+    },
+    {
+      "title": "Vector reads the agent gateway",
+      "what": "The Privilege agent gateway on local Docker writes a file, not stdout; Vector reads that file too. Measured live on 2026-11-08.",
+      "edges": [
+        12
+      ]
+    },
+    {
+      "title": "Vector writes ping-logs-*",
+      "what": "Vector tags known-harmless lines as noise and masks secret-looking values before it writes to the ping-logs-* indices in Elasticsearch. Measured live on 2026-11-08.",
+      "edges": [
+        13
+      ]
+    },
+    {
+      "title": "Privilege exports events",
+      "what": "The hosted gateway and the console send their events to the Privilege SIEM export: console admin changes and runtime events. Measured live on 2026-11-08.",
+      "edges": [
+        14
+      ]
+    },
+    {
+      "title": "Export to ping-siem-events-v2",
+      "what": "Every exported event lands in the index ping-siem-events-v2, marked console or runtime (privilege_event_kind). Measured live on 2026-11-08.",
+      "edges": [
+        15
+      ]
+    },
+    {
+      "title": "The bridge copies the rest",
+      "what": "Privilege does not export policy decisions, AI Guard verdicts or approvals. The Privilege logs bridge copies them. Measured live on 2026-11-08.",
+      "edges": [
+        16
+      ]
+    },
+    {
+      "title": "Bridge to the same index",
+      "what": "The bridge writes into the same index, so one Kibana search covers what Privilege exports and what the bridge copied. Measured live on 2026-11-08.",
+      "edges": [
+        17
+      ]
+    },
+    {
+      "title": "Every event type",
+      "what": "One PingOne webhook subscription for every event type (SSO, MFA, DaVinci, Authorize, Protect, Verify and the rest) posts to pingone-events-LAB. Being switched on now: not measured yet.",
+      "edges": [
+        18
+      ]
+    },
+    {
+      "title": "To ping-logs-pingone",
+      "what": "pingone-events-LAB writes each event to ping-logs-pingone with a service label taken from the event type (sso, mfa, davinci ...). Being switched on now: not measured yet.",
+      "edges": [
+        19
+      ]
+    },
+    {
+      "title": "Kibana reads it",
+      "what": "Kibana holds the dashboards, the saved searches and the Security detection rules over these indices. Measured live on 2026-11-08.",
+      "edges": [
+        20
+      ]
+    },
+    {
+      "title": "The loopback forwarder",
+      "what": "The lab only reads a loopback URL. In Docker the siem profile adds a forwarder on 127.0.0.1:9200 inside the lab that relays to the Elasticsearch port-forward. Measured 2026-11-08: a 30-day read returned events.",
+      "edges": [
+        21
+      ]
+    },
+    {
+      "title": "Real mode read",
+      "what": "In Real mode {service=\"privilege-siem\"} reads ping-siem-events-v2 through the forwarder, one read-only search. Measured 2026-11-08.",
+      "edges": [
+        22
+      ]
+    },
+    {
+      "title": "Searches tab links into Kibana",
+      "what": "The Searches tab builds Discover links and KQL for Kibana. The lab never calls Kibana: these are links and text.",
+      "edges": [
+        23
       ]
     }
   ]

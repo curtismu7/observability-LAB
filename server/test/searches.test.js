@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { SEARCH_GROUPS, SearchInputError, buildKql, discoverUrl, kqlString, rison, searchRunUrl, MAX_INPUT, PINGONE_SERVICES, PRODUCTS } from '../src/searches.js';
+import { SEARCH_GROUPS, SearchInputError, buildKql, discoverUrl, kqlString, rison, searchRunUrl, MAX_INPUT, PINGONE_SERVICES, PRODUCTS, optionOf } from '../src/searches.js';
 import { kibanaFrom, labLinksFrom, rison as configRison, siemFrom } from '../src/config.js';
 import { createApp } from '../src/app.js';
 
@@ -45,7 +45,14 @@ test('the catalog: every group the tab promises, unique ids, one {value} per inp
   assert.ok(SEARCH_GROUPS.find((g) => g.id === 'pingone').pending, 'PingOne is labelled as waiting for forwarding');
   assert.deepEqual(byId('p1-service').input.options, PINGONE_SERVICES);
   assert.deepEqual(byId('all-errors-product').input.options, PRODUCTS);
-  for (const s of all.filter((x) => x.input?.kind === 'select')) for (const o of s.input.options) assert.doesNotThrow(() => buildKql(s, o));
+  for (const s of all.filter((x) => x.input?.kind === 'select')) for (const o of s.input.options) assert.doesNotThrow(() => buildKql(s, optionOf(o).value));
+});
+
+test('PingOne service select: the ping_component values the Elasticsearch pipeline writes, with readable labels', () => {
+  assert.deepEqual(PINGONE_SERVICES.map((o) => o.value), ['sso', 'mfa', 'davinci', 'authorize', 'protect', 'verify', 'credentials', 'directory', 'governance', 'provisioning', 'admin-config', 'other']);
+  assert.deepEqual(PINGONE_SERVICES.map((o) => o.label), ['SSO', 'MFA', 'DaVinci', 'Authorize (P1AZ)', 'Protect', 'Verify', 'Credentials', 'Directory', 'Governance (access requests, agreements)', 'Provisioning', 'Admin config', 'Other']);
+  assert.equal(buildKql(byId('p1-service'), 'admin-config'), 'ping_product : "pingone" and ping_component : "admin-config"');
+  assert.deepEqual(optionOf('pingfederate'), { value: 'pingfederate', label: 'pingfederate' });
 });
 
 test('Run in Discover: same Rison helper and origin as the Kibana panel, the data view, 30 days', () => {
