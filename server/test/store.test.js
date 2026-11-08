@@ -76,7 +76,7 @@ test('relabel off: the service label carries the raw container name, every by-se
   assert.ok(ask(off, '{service="/obs-demo-pingfederate"}').total > 0, 'the lines are still there under the raw name');
   const al = await alertsFor(off);
   assert.equal(al.ProductLogSilence.state, 'firing');
-  assert.deepEqual(al.ProductLogSilence.evidence.silentServices.sort(), ['mcp-gateway', 'ping-gateway', 'ping-mcpgw', 'pingfederate', 'pingone-webhook', 'procyon-nodesensor']);
+  assert.deepEqual(al.ProductLogSilence.evidence.silentServices.sort(), ['agentless-mcpgw', 'mcp-gateway', 'ping-gateway', 'ping-mcpgw', 'pingfederate', 'pingone-webhook', 'procyon-nodesensor']);
   assert.equal(al.FailedLoginBurst.state, 'ok', 'the other rules just go quiet, which is the trap');
 });
 
@@ -147,4 +147,19 @@ test('Privilege agent gateway: rejected requests are logged at level info (measu
   const errors = ask(fresh(), '{service="ping-mcpgw"} |= "level=error"', { limit: 20 });
   assert.ok(errors.entries.length >= 1 && errors.entries.every((e) => e.level === 'error' && /Unavailable/.test(e.message)));
   assert.ok(ask(fresh(), '{service="ping-mcpgw"}', { limit: 5 }).entries.some((e) => e.ts >= NOW - 10 * 60_000), 'fresh enough that the silence rule is quiet at baseline');
+});
+
+test('Privilege hosted gateway: each request names the caller and the app; allowed is only a proxy line, a refusal is one info-level line (measured)', () => {
+  const all = ask(fresh(), '{service="agentless-mcpgw"}', { limit: 500 }).entries;
+  assert.ok(all.every((e) => e.product === 'phosted'));
+  const n = (source) => all.filter((e) => e.source === source).length;
+  assert.equal(n('caller-token'), 10);
+  assert.equal(n('resolved-host'), 10);
+  assert.equal(n('proxying') + n('policy-denied'), 10, 'every request ends in exactly one of: proxied, or denied');
+  assert.equal(n('policy-denied'), 2);
+  assert.ok(all.filter((e) => e.source === 'policy-denied').every((e) => e.level === 'info' && /policy denied <user-id> access to a2a app worker-agent/.test(e.message)), 'a denial is level info');
+  assert.ok(!all.some((e) => /allowed/i.test(e.message)), 'there is no allow line');
+  assert.ok(all.filter((e) => e.source === 'aiguard-blocked').every((e) => e.level === 'warn'));
+  for (const e of all) assert.ok(!/[0-9a-f]{8}-[0-9a-f]{4}-/.test(e.message), 'no real id in a seeded line');
+  assert.ok(all.some((e) => e.ts >= NOW - 10 * 60_000), 'fresh enough that the silence rule is quiet at baseline');
 });

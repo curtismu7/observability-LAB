@@ -66,6 +66,43 @@ function mockFetch() {
 beforeEach(() => { override = {}; mockFetch(); window.location.hash = ""; });
 const ready = async () => { render(<App />); await screen.findByText("Follow one sign-in"); await screen.findByTestId("log-table"); };
 
+describe("log lines open on click", () => {
+  it("a line expands to show its details and collapses again; the table keeps its rows", async () => {
+    const user = userEvent.setup();
+    await ready();
+    const rows = screen.getAllByTestId("log-row");
+    expect(screen.queryByTestId("line-detail")).toBeNull();
+    expect(rows[0]).toHaveAttribute("aria-expanded", "false");
+    await user.click(rows[0]);
+    const detail = await screen.findByTestId("line-detail");
+    expect(rows[0]).toHaveAttribute("aria-expanded", "true");
+    expect(within(detail).getByText("Audit log")).toBeInTheDocument();
+    expect(within(detail).getByText("service=pingfederate")).toBeInTheDocument();
+    await user.click(rows[0]);
+    expect(screen.queryByTestId("line-detail")).toBeNull();
+    expect(screen.getAllByTestId("log-row")).toHaveLength(rows.length);
+  });
+
+  it("the keyboard opens it too (Enter), and several can be open at once", async () => {
+    const user = userEvent.setup();
+    await ready();
+    const rows = screen.getAllByTestId("log-row");
+    rows[0].focus();
+    await user.keyboard("{Enter}");
+    await user.click(rows[1]);
+    expect(screen.getAllByTestId("line-detail")).toHaveLength(2);
+  });
+
+  it("the trace button inside a line runs a trace search and does not open or close the line", async () => {
+    const user = userEvent.setup();
+    await ready();
+    const before = calls.length;
+    await user.click(screen.getAllByRole("button", { name: "trace" })[0]);
+    expect(screen.queryByTestId("line-detail")).toBeNull();
+    await waitFor(() => expect(calls.slice(before).some((c) => decodeURIComponent(c.url).includes("b".repeat(32)))).toBe(true));
+  });
+});
+
 describe("shell and rule 19 toggle", () => {
   it("shows the banner first, the mode, and sends X-Workspace on API calls", async () => {
     await ready();

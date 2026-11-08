@@ -113,7 +113,7 @@ test('incident injection is bounded however often it is pressed', async () => {
 test('scenarios, diagram and runs endpoints; verticals fill the cast', async () => {
   await withServer(async (url) => {
     const s = await J(await fetch(`${url}/api/scenarios`));
-    assert.equal(s.scenarios.length, 6); assert.equal(s.products.length, 6); assert.deepEqual(s.verticals.sort(), ['finance', 'health', 'retail']);
+    assert.equal(s.scenarios.length, 6); assert.equal(s.products.length, 7); assert.deepEqual(s.verticals.sort(), ['finance', 'health', 'retail']);
     assert.ok(!JSON.stringify(s).includes('{{'));
     const fin = await J(await fetch(`${url}/api/scenarios?vertical=finance`));
     assert.match(JSON.stringify(fin), /payments-agent/);

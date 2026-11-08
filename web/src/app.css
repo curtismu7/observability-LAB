@@ -91,3 +91,15 @@ button:disabled { opacity: 0.6; cursor: not-allowed; border-style: dashed; }
 .logtable td:nth-child(2) { white-space: nowrap; }
 /* A pressed or selected control keeps its filled accent on hover (the plain hover tint would put white text on a light fill). */
 button[aria-pressed="true"]:hover:not(:disabled), [role="tab"][aria-selected="true"]:hover { background: var(--accent-deep); color: var(--on-accent); }
+
+/* A log line opens on click to show its details. Closed rows keep their look; only the pointer and a quiet hover say they are clickable. */
+.logtable tr.logrow { cursor: pointer; }
+.logtable tr.logrow:hover td, .logtable tr.logrow[aria-expanded="true"] td { background: var(--th-bg-card); }
+.logtable tr.logrow:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
+.logtable tr.logdetail td { background: var(--th-bg-card); padding: 10px 12px; font-size: var(--font-size-sm); }
+.linedetail { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; margin: 0; }
+.linedetail dt { color: var(--th-text-muted); }
+.linedetail dd { margin: 0; overflow-wrap: anywhere; }
+.linedetail dd .tag { margin: 0 6px 4px 0; }
+.linedetail pre.json { margin: 0; white-space: pre-wrap; }
+.linedetail .fieldtbl { margin-top: 0; }

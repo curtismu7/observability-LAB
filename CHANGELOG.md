@@ -2,6 +2,8 @@
 
 ## 0.1.0 (unreleased)
 
+- Added: a seventh source, the Privilege hosted gateway (`agentless-mcpgw`), with six line shapes measured on 2026-11-08: who is calling, which app, forwarded to the backend (the only sign of an allowed call), refused by policy (level info), policy-evaluation noise, and a guardrail block. Ids and hostnames are placeholders.
+- Added: click a log line to open it. The detail shows the exact time, labels, the whole message, the fields found in it (JSON or key=value), what kind of line it is with its honesty label, and a trace button. Closed rows look as before. Keyboard: Enter or Space. Selecting text in a line does not collapse it.
 - Added: Privilege agent gateway (`ping-mcpgw`) as a sixth source (lab PR #1).
 - Changed: the agent gateway mock writes the two rejection messages as a pair from one request (measured: 22,022 of 22,192 invalid-token lines directly follow a missing-header line), not as two independent streams. Added: the four `[SERVER]` request lines (Incoming request, User-Agent, Remote Addr, Content-Type) to the mock and to the Alloy filter; a refused request to an MCP app path writes no line (measured).
 - Added: Privilege logs in the own stack: node sensor and MCP gateway from stdout, agent gateway from AI-DEMO2's log volume (optional `docker-compose.privilege.yml`, read-only, tail from end, three message families kept). Alloy drops container history older than 15 minutes (a restart otherwise made Loki reject the replay).
