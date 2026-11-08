@@ -3,11 +3,10 @@ import Hops from "./Hops";
 import LineDetail from "./LineDetail";
 import { queryLogs, setRelabel, simulate } from "../api";
 import { visible } from "../safeText";
+import { PING_PRODUCTS } from "../products";
 
 export const DEFAULT_QUERY = '{service=~"pingone-webhook|pingfederate|ping-gateway"}';
 const PRODUCT_NAMES = { pingone: "PingOne", pingfederate: "PingFederate", pinggateway: "Ping Gateway", phosted: "Privilege hosted gateway", pevents: "Privilege gateway events", pguard: "Prompt-Guard sidecar", mcpbank: "Banking MCP server", llmproxy: "LLM proxy", authz: "Authz server", psiem: "Privilege SIEM", mcpweather: "Weather MCP server", hitl: "HITL service", unknown: "Other" };
-// The Ping products (the Privilege family included). Anything else in the stream is an AI-DEMO2 service or unlabelled.
-const PING_PRODUCTS = new Set(["pingone", "pingfederate", "pinggateway", "privilege", "pgateway", "phosted", "pevents", "pguard", "psiem"]);
 const LEVEL_CLASS = { error: "tag tag--deny", fatal: "tag tag--deny", warn: "tag tag--warn", warning: "tag tag--warn", info: "tag", debug: "tag tag--quiet" };
 const clock = (iso) => iso.slice(11, 19);
 // The SIEM's events are sparse (admin changes), so its queries can look back days; Loki and the mock keep their 30 minutes.

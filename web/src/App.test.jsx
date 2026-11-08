@@ -88,6 +88,34 @@ describe("Privilege SIEM: Kibana link and the look-back window", () => {
     expect(within(siem).getByTestId("siem-setup")).toHaveTextContent("Real is not set up for this source: Set PRIVILEGE_SIEM_URL");
   });
 
+  it("the Products tab has a Ping products dropdown: Ping products apart from other services, one card per pick, all cards on All", async () => {
+    const withOther = { ...WITH_PRIVILEGE, products: [...WITH_PRIVILEGE.products, { id: "mcpbank", name: "Banking MCP server", service: "banking-mcp", container: "/c3", how: "h3", sources: [] }] };
+    override["/api/scenarios"] = () => ({ ok: true, status: 200, json: async () => withOther });
+    override["/api/info"] = infoWith();
+    const user = userEvent.setup();
+    await ready();
+    await user.click(screen.getByRole("tab", { name: "Products" }));
+    const select = await screen.findByLabelText("Ping products");
+    const groups = (label) => within(within(select).getByRole("group", { name: label })).getAllByRole("option").map((o) => o.textContent);
+    expect(within(select).getAllByRole("option")[0]).toHaveTextContent("All products");
+    expect(groups("Ping products")).toEqual(["PingFederate", "Privilege hosted gateway", "Privilege SIEM"]);
+    expect(groups("Other services")).toEqual(["Banking MCP server"]);
+    const ids = ["pingfederate", "phosted", "psiem", "mcpbank"];
+    const visibleCards = () => ids.filter((id) => screen.queryByTestId(`product-${id}`));
+    expect(visibleCards()).toEqual(ids);
+    await user.selectOptions(select, "pingfederate");
+    expect(visibleCards()).toEqual(["pingfederate"]);
+    await user.selectOptions(select, "mcpbank");
+    expect(visibleCards()).toEqual(["mcpbank"]);
+    await user.selectOptions(select, "phosted");
+    expect(visibleCards()).toEqual(["phosted"]);
+    expect(within(screen.getByTestId("product-phosted")).getByRole("link", { name: "Open in Kibana (Privilege logs)" })).toHaveAttribute("href", SIEM.kibana.deepLink);
+    await user.selectOptions(select, "psiem");
+    expect(screen.getByTestId("siem-setup")).toHaveTextContent("Real is not set up for this source");
+    await user.selectOptions(select, "all");
+    expect(visibleCards()).toEqual(ids);
+  });
+
   it("a configured SIEM says it is read-only and which query to ask", async () => {
     override["/api/scenarios"] = () => ({ ok: true, status: 200, json: async () => WITH_PRIVILEGE });
     override["/api/info"] = infoWith({ siem: { ...SIEM, configured: true, problem: null } });
