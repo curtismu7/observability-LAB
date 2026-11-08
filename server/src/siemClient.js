@@ -31,8 +31,14 @@ export function scrub(value, key = '', depth = 0) {
 }
 
 const getPath = (obj, path) => path.split('.').reduce((o, k) => (o && typeof o === 'object' ? o[k] : undefined), obj);
-// A refusal is worth the eye: Data.Decision (policy-decision-log) or Decision, when it says deny, block or reject.
-export const levelOfDoc = (src) => (/deny|denied|block|reject/i.test(String(getPath(src, 'Data.Decision') ?? src?.Decision ?? '')) ? 'warn' : 'info');
+// The document's own Level (INFO, WARNING, ERROR) first. A deny or a hold (Decision hitl) is worth the eye even though the document says INFO,
+// so it shows as warn. Data.Decision is allow, deny or hitl on policy decisions.
+const LEVELS = { info: 'info', warning: 'warn', warn: 'warn', error: 'error', fatal: 'error', debug: 'debug' };
+export function levelOfDoc(src) {
+  const base = LEVELS[String(src?.Level ?? '').toLowerCase()] || 'info';
+  const decision = String(getPath(src, 'Data.Decision') ?? src?.Decision ?? '');
+  return base === 'info' && /deny|denied|block|reject|hitl/i.test(decision) ? 'warn' : base;
+}
 const KINDS = new Set(['console', 'runtime']);
 
 export function mapHits(hits, timeField) {
