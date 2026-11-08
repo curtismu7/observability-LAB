@@ -124,7 +124,7 @@ privilege-demo, privilege-map, privilege-logging, privilege-a2a-anthropic-demo, 
 |---|---|---|
 | 0 | Preflight: stack up, Loki has lines for sources 1 to 3 | **Done 2026-11-07**, results in section 3 |
 | 1 | Surface and source matrix | **Done, inferred classification** (section 5). 1b still to do: read each page's source to confirm what it actually calls |
-| 2 | Scoped POST driver and the per-case method; run groups A to J against sources 1 to 3 | **Started**: unauthenticated probes (8a) and the three LLM cases on the hosted gateway (8b) measured. MCP and A2A cases blocked on an MCP agent key |
+| 2 | Scoped POST driver and the per-case method; run groups A to J against sources 1 to 3 | **Started**: unauthenticated probes (8a), the LLM cases (8b) and A2A, denied and allowed (8c) measured. MCP cases on the opensearch app not yet run |
 | 3 | Sources 4 and 5: kubectl proxy and search endpoint paths; one SE capture | Not started, needs SE up and owner approval at the time |
 | 4 | Fold results into the lab: replace UNVERIFIED shapes, add missing products and queries, re-run the suites | Not started |
 | 5 | Report: one table of results with counts and labels | Not started |
@@ -167,6 +167,32 @@ This reproduces the 2026-11-07 capture on a fresh pod: the LLM route answers cor
 Also seen, not caused by this run: `aiguard: blocked mcp response client=audit-test category=malicious_content` warnings, each followed by a JSON record with `ASIIDs`, `Category`, `Client` and `ComplianceMappings`, at 00:51:51, 00:51:53 and 00:52:28 (before my first call). That is the JSON family of source 4, for MCP responses, and it means another session or person was exercising the gateway at the same time. Its full shape has not been recorded here.
 
 Still not covered: allowed and denied MCP tool calls and the A2A cases (they need an MCP agent key, which the owner has not supplied), and the Google and OpenAI lanes.
+
+## 8c. A2A on the hosted gateway, through the AI-DEMO2 A2A page (measured, 2026-11-08 01:23 to 01:44Z)
+
+Setup: the page `/privilege-a2a` (access review), signed in as the demo user. The agent client was `main-agent` and the app was `worker-agent`. That is **not** the `workeragentdemo2` application seen in the console, which is a different Remote Agent (frontend path `/a2a`, backend the `workeragentdemo` service, Auth Mode None). The gateway pod was read with `kubectl logs --all-containers` (continuous capture); the `workeragentdemo` worker pod and the `mcp-promptguard` sidecar were read too, the sidecar with timestamps. Attribution to a click is by time. The user supplied no page text for message 3.
+
+**Before a policy existed on `worker-agent`: 7 requests, 01:23:51 to 01:37:40, all denied.** Every request wrote the same lines, all at level `info`:
+
+1. `Access token found for user: <uuid>, client: main-agent`
+2. `[mcpgw] resolved host for app worker-agent: <host>`
+3. `AuthorizationReqCheck check for object: {RefKind:Application RefID:...}`
+4. 15 lines `Success: principal {RefKind:User RefID:...} is in list ...` and 2 lines `polattr not set`
+5. `[mcpgw] policy denied <user uuid> access to a2a app worker-agent (agent=true): principal ... does not have access to ...`
+
+**After the owner added a policy:**
+
+| Message | At the gateway | Guardrail sidecar (`mcp-promptguard`) |
+|---|---|---|
+| 1, a plain question (01:42:01 to 01:42:15) | Allowed. Lines 1 to 4 above, then `HTTP App RBAC check` and `Proxying to: http://workeragentdemo...svc.cluster.local`, then `[mcpfilter] no cap header on request path=/a2a/jsonrpc`. No `policy denied`, and no explicit allow line. | `allow` just before the proxy line, then `flagged INJECTION (0.99)` and `allow` about 5 s later (text not known) |
+| 2, the injection sentence (01:42:54) | **Never reached the A2A agent.** The page's own model call (the `llama.cpp` lane) got `400 content_blocked: prompt_injection`. The gateway pod logged only the page's `/trace` request. **No line** for the blocked model call. | no verdict |
+| 3, "access my sensitive student finance" (01:43:42 to 01:43:59) | Allowed and proxied, same lines as message 1 | **8 verdicts `flagged INJECTION` (0.98 to 1.00)** between 01:43:54 and 01:43:59, and two `BrokenPipeError` tracebacks at 01:43:59 (the gateway closed its connection before the sidecar replied) |
+
+What the log names: the user's id, the agent client, the app, the backend service address, and, only in `[mcpfilter]` lines, the request path (`/a2a/jsonrpc`). It does not name the message, and the worker pod logged **nothing** for any request. The `RefID` values are base64 of `<tenant id>@@@default@@@<name or user id>`, so the tenant and user ids can be read by anyone who can read the log. Even `policy denied` is level `info`. No JWT or `Bearer` string appeared in any captured line.
+
+What this does **not** show: whether the sidecar's `flagged INJECTION` verdicts changed what the gateway did. The gateway wrote no block or alert line for messages 1 or 3, and the exchange completed. Which text each verdict was on is also unknown. The page's result for message 3 was not reported.
+
+Also seen in the same window, from a different client (`audit-test`, not this run): three allowed MCP calls to the `hostile-mcp` app at 01:40:22. They show what an allowed MCP call logs on this build: the user, the app, `MCP App RBAC check`, `Principal ... has permission for ...`, `MCP call detected for method tools with target: get_weather`, `Proxying to: ...`, and the capabilities header. At 01:40:08 there was a burst of 25 `Error receiving from the stream ... Unavailable` errors.
 
 ## 9. Constraints
 
