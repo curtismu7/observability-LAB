@@ -17,7 +17,8 @@ SOURCE_ID = "security-detection-rule-monitoring-default"
 NEW_ID = "detection-rule-monitoring-runs-per-rule"
 DATA_VIEW = "kibana-event-log-data-view"
 RUNS_ID = "7e6d1c20-0a4b-4f3e-9d51-5a1b2c3d4e5f"
-ROW_H = 9
+ROW_H = 8
+RULE_COL_WIDTH = 420  # px: wide enough for the longest rule name, which was cut off at the default width
 NOT_CUSTOMIZABLE = "This Kibana-managed dashboard can not be customized. To make a custom version, clone it or edit and save it as a new dashboard."
 COPY_NOTE = "This is a copy of the managed dashboard with a table of every rule (runs, speed, alerts, last run) added under the top boxes."
 LAYER = "a1b2c3d4-0000-4000-8000-000000000001"
@@ -62,7 +63,7 @@ def build_copy(source):
     columns[COL["avg"]]["params"]["format"] = {"id": "number", "params": {"decimals": 0}}
     st["visualization"] = {"layerId": LAYER, "layerType": "data", "rowHeight": "single", "headerRowHeight": "single", "density": "compact",
                            "paging": {"size": 10, "enabled": False},
-                           "columns": [{"columnId": c, "isTransposed": False, "isMetric": c != COL["rule"]} for c in columns]}
+                           "columns": [{"columnId": c, "isTransposed": False, "isMetric": c != COL["rule"], **({"width": RULE_COL_WIDTH} if c == COL["rule"] else {})} for c in columns]}
     st["datasourceStates"] = {"formBased": {"layers": {LAYER: {"columns": columns, "columnOrder": list(columns), "incompleteColumns": {}}}}}
     st["internalReferences"], st["adHocDataViews"] = [], {}
 
