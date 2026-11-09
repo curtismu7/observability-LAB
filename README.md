@@ -1,6 +1,9 @@
-# Observability Lab
+# Observability LAB
 
-**Tier: Demo.** Ping products log in different ways. This lab follows a log line from the product to a searchable, alertable store, and shows what goes wrong when one small collector rule is missing. It is the standalone version of the logging and monitoring stack in AI-DEMO2 (collector, Loki, dashboards, alert rules), without Grafana: one small container with its own log store, a query box and three alert rules.
+Tier: Demo.
+Repo: https://github.com/curtismu7/observability-LAB
+
+Ping products log in different ways. This lab follows a log line from the product to a searchable, alertable store, and shows what goes wrong when one small collector rule is missing. It is the standalone version of the logging and monitoring stack in AI-DEMO2 (collector, Loki, dashboards, alert rules), without Grafana: one small container with its own log store, a query box and three alert rules.
 
 Catalog id **D123** (chosen by the owner 2026-11-07; D122 belongs to a2a-lab).
 
@@ -43,6 +46,37 @@ Catalog id **D123** (chosen by the owner 2026-11-07; D122 belongs to a2a-lab).
 - **Browser driver (profile `drive`).** `docker compose --profile drive run --rm driver` runs headless Chromium (Playwright 1.59.1, in Docker) against the labs through the lab-proxy, so the proxy writes real access-log lines for Alloy to ship. GET only: it loads each lab's page, reads `/api/health` and clicks tabs; no form, sign-in or POST. `DRIVE_LABS=a-lab,b-lab` and `DRIVE_ROUNDS=3` tune it. Query the result in Real mode with `{service="lab-proxy-lab-proxy-1"}`.
 - **Privilege logs in the stack.** Alloy also ships the Privilege **node sensor** (`procyon-nodesensor`) and the **MCP gateway** (`mcp-gateway`), the two that print to stdout, and six AI-DEMO2 services whose lines the lab models (PingFederate, the Ping Gateway, the LLM proxy, the authz server, the banking MCP server, the weather MCP server), each matched by exact container name and rate limited so the Ping Gateway's endless router error cannot fill Loki; they appear when AI-DEMO2's containers of those names are running. The **agent gateway** (`ping-mcpgw`) writes a file, so it is an add-on: `docker compose -f docker-compose.yml -f docker-compose.privilege.yml --profile stack up -d` mounts AI-DEMO2's `ai-demo_mcpgw-logs` volume read-only (override with `PRIVILEGE_LOG_VOLUME`). Only the four modelled message families are kept (the two rejection lines, the control-plane stream error, and the four `[SERVER]` request lines that carry User-Agent and Remote Addr); the file's other lines (tenant and node ids, peer certificates) are dropped before Loki, and only lines written after start are read. New gateway lines appear only while AI-DEMO2's `mcpgw` profile is running, which connects to the owner's tenant; this lab never starts it.
 - **What this measured (2026-11-07):** nearly every `-LAB` app prints only a startup line to stdout, so the browser makes no app log lines; the lines come from the **proxy's access log**. First run: 6 of 11 default labs reached; the others answered 421, 403 or 502 at the proxy and were skipped. The proxy log holds every request through it, so Loki also gets non-driver lines (health polls from other tools); driver requests carry a HeadlessChrome user agent. The lines are nginx access-log shape, not the Ping product shapes, so the six product alert rules still read as silent in this stack.
+
+## Run from a clone
+
+Prerequisites: Node 26 or newer. Docker (OrbStack) only for the Docker form. Mock needs no tenant and no credentials.
+
+```
+git clone https://github.com/curtismu7/observability-LAB.git
+cd observability-LAB
+npm ci
+npm run build
+npm run doctor
+npm start
+```
+
+Open http://127.0.0.1:7800/. `GET /api/health` answers `demo-health/1`. Or with Docker: `HOST_PORT=7800 docker compose up --build -d` from the same folder.
+
+## What to do if the port is taken
+
+```
+Ports: observability-LAB listens on 7800 only.
+Docker publishes it on 127.0.0.1:7800 only.
+
+If the port is taken:
+1. Find what is using it:
+   lsof -iTCP:7800 -sTCP:LISTEN -n -P
+2. If it is an old copy of this lab (npm start), stop that process: kill <PID>.
+   If it is this lab's container: docker compose down (from this folder).
+3. If it is something else, stop it. The lab refuses any other port on purpose
+   (one port per app; npm run doctor says so), so free 7800 rather than moving the lab.
+4. Then start again: npm start, or docker compose up -d.
+```
 
 ## Tabs
 
