@@ -67,9 +67,11 @@ test('kibana-runs-per-rule.py saves a COPY with a per-rule row under the top box
     assert.equal(body.attributes.title, 'Detection rule monitoring (runs per rule)');
     const panels = JSON.parse(body.attributes.panelsJSON);
     const row = panels.find((p) => p.title === 'Rules: runs, speed and alerts');
-    assert.deepEqual(row.gridData, { i: row.panelIndex, x: 0, y: 15, w: 48, h: 9 }, 'directly under the top boxes, full width');
+    assert.deepEqual(row.gridData, { i: row.panelIndex, x: 0, y: 15, w: 48, h: 8 }, 'directly under the top boxes, full width');
     const a = row.embeddableConfig.attributes;
     assert.equal(a.visualizationType, 'lnsDatatable', 'one table listing every rule, not one box per rule');
+    assert.equal(a.state.visualization.columns[0].width, 420, 'the Rule column is wide enough for the longest rule name');
+    assert.equal(a.state.visualization.columns[1].width, undefined, 'the number columns keep their default width');
     assert.equal(a.state.visualization.paging.enabled, false, 'every rule shows; the table scrolls instead of paging');
     const header = JSON.stringify(panels.find((p) => p.panelIndex === 'hdr'));
     assert.ok(!header.includes('can not be customized') && header.includes('This is a copy of the managed dashboard'), 'the header note describes the copy');
@@ -79,7 +81,7 @@ test('kibana-runs-per-rule.py saves a COPY with a per-rule row under the top box
     assert.deepEqual(cols.map((c) => `${c.operationType}:${c.sourceField}`).sort(), [`average:${RUN}`, 'count:___records___', 'max:@timestamp', `max:${RUN}`, 'sum:kibana.alert.rule.execution.metrics.alert_counts.new', 'terms:rule.name'].sort());
     assert.deepEqual(cols.map((c) => c.label), ['Rule', 'Runs', 'Avg run (ms)', 'Slowest run (ms)', 'New alerts', 'Last run'], 'plain column names, in reading order');
     assert.deepEqual(a.state.visualization.columns.map((c) => c.columnId), layer.columnOrder, 'every column is shown, in order');
-    assert.equal(panels.find((p) => p.panelIndex === 'c1').gridData.y, 33, 'the panels below move down by the new row');
+    assert.equal(panels.find((p) => p.panelIndex === 'c1').gridData.y, 32, 'the panels below move down by the new row');
     assert.equal(panels.find((p) => p.panelIndex === 't2').gridData.y, 7, 'the top boxes stay where they were');
     assert.ok(body.references.some((x) => x.name === `${row.panelIndex}:indexpattern-datasource-layer-${Object.keys(a.state.datasourceStates.formBased.layers)[0]}`));
     assert.ok(JSON.stringify(a.state.filters).includes('kibana-event-log-data-view') && !JSON.stringify(a.state.filters).includes('abc-uuid'), 'saved filters point at the data view the references resolve');
