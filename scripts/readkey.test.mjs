@@ -51,7 +51,7 @@ test('make-read-key.sh: asks for READ-only access to three indexes, saves the ke
     const body = JSON.parse(post.body);
     const idx = body.role_descriptors.reader.indices;
     assert.equal(idx.length, 1);
-    assert.deepEqual(idx[0].names, ['ping-siem-events-v2', 'ping-logs-*', 'pingone-events']);
+    assert.deepEqual(idx[0].names, ['ping-siem-events-v2', 'ping-logs-*', 'demo-logs-*', 'pingone-events']);
     assert.deepEqual(idx[0].privileges, ['read', 'view_index_metadata'], 'read only: no write, create or manage');
     assert.equal(body.expiration, '30d');
     assert.equal(Object.keys(body.role_descriptors).length, 1);
