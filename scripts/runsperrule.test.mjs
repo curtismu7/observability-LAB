@@ -13,7 +13,7 @@ const MANAGED = {
   attributes: {
     title: '[Elastic Security] Detection rule monitoring', description: 'managed',
     panelsJSON: JSON.stringify([
-      { type: 'visualization', panelIndex: 'hdr', gridData: { i: 'hdr', x: 0, y: 0, w: 48, h: 7 }, embeddableConfig: {} },
+      { type: 'visualization', panelIndex: 'hdr', gridData: { i: 'hdr', x: 0, y: 0, w: 48, h: 7 }, embeddableConfig: { savedVis: { params: { markdown: '* This Kibana-managed dashboard can not be customized. To make a custom version, clone it or edit and save it as a new dashboard.' } } } },
       tile('t1', 'Enabled rules', 0), tile('t2', 'Rule executions', 10), tile('t3', '"Succeeded" statuses', 20),
       { type: 'lens', title: 'Executions by status', panelIndex: 'c1', gridData: { i: 'c1', x: 0, y: 24, w: 21, h: 13 }, embeddableConfig: {} },
     ]),
@@ -67,14 +67,18 @@ test('kibana-runs-per-rule.py saves a COPY with a per-rule row under the top box
     assert.equal(body.attributes.title, 'Detection rule monitoring (runs per rule)');
     const panels = JSON.parse(body.attributes.panelsJSON);
     const row = panels.find((p) => p.title === 'Runs per rule');
-    assert.deepEqual(row.gridData, { i: row.panelIndex, x: 0, y: 15, w: 48, h: 9 }, 'directly under the top boxes, full width');
+    assert.deepEqual(row.gridData, { i: row.panelIndex, x: 0, y: 15, w: 48, h: 8 }, 'directly under the top boxes, full width');
     const a = row.embeddableConfig.attributes;
     assert.equal(a.visualizationType, 'lnsMetric');
+    assert.equal(a.state.visualization.maxCols, 3, 'three boxes per row so the full rule names fit');
+    assert.equal(a.state.visualization.valuesTextAlign, 'center');
+    const header = JSON.stringify(panels.find((p) => p.panelIndex === 'hdr'));
+    assert.ok(!header.includes('can not be customized') && header.includes('This is a copy of the managed dashboard'), 'the header note describes the copy');
     const layer = Object.values(a.state.datasourceStates.formBased.layers)[0];
     const cols = Object.values(layer.columns);
     assert.deepEqual(cols.map((c) => `${c.operationType}:${c.sourceField}`).sort(), ['count:___records___', 'terms:rule.name']);
     assert.ok(layer.columns[a.state.visualization.metricAccessor].operationType === 'count' && layer.columns[a.state.visualization.breakdownByAccessor].sourceField === 'rule.name');
-    assert.equal(panels.find((p) => p.panelIndex === 'c1').gridData.y, 33, 'the panels below move down by the new row');
+    assert.equal(panels.find((p) => p.panelIndex === 'c1').gridData.y, 32, 'the panels below move down by the new row');
     assert.equal(panels.find((p) => p.panelIndex === 't2').gridData.y, 7, 'the top boxes stay where they were');
     assert.ok(body.references.some((x) => x.name === `${row.panelIndex}:indexpattern-datasource-layer-${Object.keys(a.state.datasourceStates.formBased.layers)[0]}`));
     assert.ok(JSON.stringify(a.state.filters).includes('kibana-event-log-data-view') && !JSON.stringify(a.state.filters).includes('abc-uuid'), 'saved filters point at the data view the references resolve');
