@@ -3,7 +3,7 @@
 # a credential, and neither does Claude.
 #
 # What it does: takes the password of an Elasticsearch user that may create API keys (typed hidden, or read from a cluster Secret in your own
-# shell; never stored or printed), creates a key that can only READ ping-siem-events-v2, ping-logs-* and pingone-events and expires, then writes
+# shell; never stored or printed), creates a key that can only READ ping-siem-events-v2, ping-logs-*, demo-logs-* and pingone-events and expires, then writes
 # PRIVILEGE_SIEM_URL, PRIVILEGE_SIEM_INDEX (only if unset) and PRIVILEGE_SIEM_READ_APIKEY into .env (mode 600, the old file kept as .env.bak.<time>).
 # It talks only to the Elasticsearch port-forward already running on this Mac (http://localhost:9200).
 #
@@ -43,7 +43,7 @@ else
   [ -n "$PW" ] || { echo "no password given" >&2; exit 1; }
 fi
 
-BODY=$(printf '{"name":"observability-lab-reader","expiration":"%s","role_descriptors":{"reader":{"indices":[{"names":["ping-siem-events-v2","ping-logs-*","pingone-events"],"privileges":["read","view_index_metadata"]}]}}}' "$EXPIRY")
+BODY=$(printf '{"name":"observability-lab-reader","expiration":"%s","role_descriptors":{"reader":{"indices":[{"names":["ping-siem-events-v2","ping-logs-*","demo-logs-*","pingone-events"],"privileges":["read","view_index_metadata"]}]}}}' "$EXPIRY")
 # The password goes to curl on stdin as a config line, so it never appears in the process list.
 esc() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
 RESP=$(printf 'user = "%s:%s"\n' "$(esc "$USER_NAME")" "$(esc "$PW")" | curl -s -m 20 -w '\n%{http_code}' -K - -H 'Content-Type: application/json' -X POST "$ES/_security/api_key" -d "$BODY") || true
