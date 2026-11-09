@@ -20,7 +20,7 @@ export default function EventsFilter({ origin }) {
   try { esql = buildEventsEsql(c); } catch (e) { if (e instanceof SearchInputError) problem = e.message; else throw e; }
   const rows = c.show === "events";
   return (
-    <section className="panel" aria-labelledby="pe-builder-h" data-testid="pe-builder">
+    <section className="panel pe-builder" aria-labelledby="pe-builder-h" data-testid="pe-builder">
       <h3 id="pe-builder-h">Build your own search</h3>
       <p className="muted">Choose what to look for; the query writes itself. Anything you leave on "Any" is not filtered.</p>
       <div className="qform">
