@@ -17,7 +17,9 @@ SOURCE_ID = "security-detection-rule-monitoring-default"
 NEW_ID = "detection-rule-monitoring-runs-per-rule"
 DATA_VIEW = "kibana-event-log-data-view"
 RUNS_ID = "7e6d1c20-0a4b-4f3e-9d51-5a1b2c3d4e5f"
-ROW_H = 9
+ROW_H = 8
+NOT_CUSTOMIZABLE = "This Kibana-managed dashboard can not be customized. To make a custom version, clone it or edit and save it as a new dashboard."
+COPY_NOTE = "This is a copy of the managed dashboard with a Runs per rule row added under the top boxes."
 LAYER, CNT, BRK = "a1b2c3d4-0000-4000-8000-000000000001", "a1b2c3d4-0000-4000-8000-000000000002", "a1b2c3d4-0000-4000-8000-000000000003"
 
 
@@ -43,7 +45,8 @@ def build_copy(source):
     a["visualizationType"] = "lnsMetric"
     a["references"] = [{"id": DATA_VIEW, "name": f"indexpattern-datasource-layer-{LAYER}", "type": "index-pattern"}, {"id": DATA_VIEW, "name": "filter-index", "type": "index-pattern"}]
     st = a["state"]
-    st["visualization"] = {"layerId": LAYER, "layerType": "data", "metricAccessor": CNT, "breakdownByAccessor": BRK, "maxCols": 6, "showBar": False, "subtitle": "runs"}
+    st["visualization"] = {"layerId": LAYER, "layerType": "data", "metricAccessor": CNT, "breakdownByAccessor": BRK, "maxCols": 3, "showBar": False, "subtitle": "runs",
+                       "valuesTextAlign": "center", "titlesTextAlign": "center", "valueFontMode": "fit"}
     st["datasourceStates"] = {"formBased": {"layers": {LAYER: {
         "columns": {
             BRK: {"label": "Rule", "dataType": "string", "operationType": "terms", "scale": "ordinal", "sourceField": "rule.name", "isBucketed": True,
@@ -65,6 +68,9 @@ def build_copy(source):
                 point_at_data_view(v)
     point_at_data_view(st.get("filters", []))
     panels.append(new)
+    # The header note on the copy said the dashboard cannot be customized; say what this copy is instead.
+    for i, p in enumerate(panels):
+        panels[i] = json.loads(json.dumps(p).replace(NOT_CUSTOMIZABLE, COPY_NOTE))
     refs += [{"id": DATA_VIEW, "name": f"{RUNS_ID}:indexpattern-datasource-layer-{LAYER}", "type": "index-pattern"}, {"id": DATA_VIEW, "name": f"{RUNS_ID}:filter-index", "type": "index-pattern"}]
     attrs["panelsJSON"] = json.dumps(panels)
     attrs["title"] = "Detection rule monitoring (runs per rule)"
