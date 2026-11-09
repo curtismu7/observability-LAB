@@ -163,9 +163,16 @@ export function labLinksFrom(env = process.env) {
   };
 }
 
+// One starting value: a trimmed string (or number) of 1 to 200 characters with no control characters, else null.
+export function cleanStartingValue(value) {
+  if (typeof value !== 'string' && typeof value !== 'number') return null;
+  const v = String(value).trim();
+  // eslint-disable-next-line no-control-regex
+  return v && v.length <= 200 && !/[\u0000-\u001f\u007f]/.test(v) ? v : null;
+}
 // Starting values for the Searches that ask you to type something (a user, an agent key, a tool...). OBS_SEARCH_DEFAULTS is a JSON object,
 // search id -> value, set in the lab's own .env (never in the repo: the values are real ids). Anything malformed is dropped, so a bad
-// line costs the starting values and nothing else. A live lookup can later fill the same shape.
+// line costs the starting values and nothing else. startingValues.js fills the same shape live, and wins when it finds a value.
 export function searchDefaultsFrom(env = process.env) {
   let raw;
   try { raw = env.OBS_SEARCH_DEFAULTS ? JSON.parse(env.OBS_SEARCH_DEFAULTS) : null; } catch { return {}; }
@@ -173,9 +180,8 @@ export function searchDefaultsFrom(env = process.env) {
   const out = {};
   for (const [id, value] of Object.entries(raw).slice(0, 40)) {
     if (!/^[a-z0-9-]{1,40}$/.test(id) || typeof value !== 'string') continue;
-    const v = value.trim();
-    // eslint-disable-next-line no-control-regex
-    if (v && v.length <= 200 && !/[\u0000-\u001f\u007f]/.test(v)) out[id] = v;
+    const v = cleanStartingValue(value);
+    if (v) out[id] = v;
   }
   return out;
 }

@@ -17,6 +17,7 @@ import { INCIDENTS, incidentEvents, queryMock, toIso } from './logStore.js';
 import { QueryError, formatQuery, parseQuery } from './logql.js';
 import { LokiError, createLokiClient } from './lokiClient.js';
 import { SiemError, createSiemClient } from './siemClient.js';
+import { TTL_MS, latestValues } from './startingValues.js';
 import { evaluateAlerts } from './alerts.js';
 import { buildQueryHops, newTrace } from './trace.js';
 import { MAX_INJECTED, createWorkspaces, workspaceFrom } from './workspaces.js';
@@ -69,6 +70,18 @@ export function createApp({
       labLinks: labLinksFrom(env),
       searchDefaults: searchDefaultsFrom(env), // starting values for the Searches that ask you to type; ids, never keys
     });
+  });
+  // Live starting values for the Searches that ask for a typed value (see startingValues.js). Cached for five minutes; never throws.
+  let startCache = null;
+  api.get('/search-defaults', async (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const siem = siemFrom(env);
+    if (!siem) return res.json({ source: 'none', values: {}, failed: [], reason: siemProblemFrom(env) });
+    if (!startCache || now() - startCache.at > TTL_MS) {
+      const found = await latestValues({ baseUrl: siem.url, apiKey: siem.apiKey, siemIndex: siem.index, timeField: siem.timeField });
+      startCache = { at: now(), ...found };
+    }
+    return res.json({ source: 'live', values: startCache.values, failed: startCache.failed, reason: null });
   });
   // Rule 19: exactly { source: "mock"|"real" }; 409 when Real is not configured.
   api.post('/mode', (req, res) => {

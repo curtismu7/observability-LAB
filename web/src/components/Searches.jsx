@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { CopyButton } from "./PrivilegeKibana";
+import { getJson } from "../api";
 import EventsFilter from "./EventsFilter";
 import useStarting from "../useStarting";
 import { visible } from "../safeText";
@@ -84,6 +86,10 @@ function Links({ kibana, labLinks, origin }) {
 // Kibana searches that each answer one question. Everything here is text and links built in the browser from the shared catalog and
 // the Kibana origin the server reports (PRIVILEGE_KIBANA_URL); nothing calls Kibana.
 export default function Searches({ info }) {
+  // Starting values: the lab's .env first (instant), then the newest real values from Elasticsearch when the SIEM read key is set up.
+  const [live, setLive] = useState(null);
+  useEffect(() => { let on = true; getJson("/api/search-defaults").then((r) => { if (on) setLive(r?.values ?? null); }).catch(() => {}); return () => { on = false; }; }, []);
+  const starts = { ...info?.searchDefaults, ...live };
   const kibana = info?.siem?.kibana;
   const origin = kibana?.url || DEFAULT_KIBANA;
   return (
@@ -96,7 +102,7 @@ export default function Searches({ info }) {
           <h2 id={`g-${g.id}`}>{g.title} {g.pending && <span className="tag tag--warn" data-testid="pending">data appears once PingOne forwarding is live</span>}</h2>
           <p className="muted">{g.note}</p>
           <div className="cards">
-            {g.searches.map((s) => <Search key={s.id} search={s} origin={origin} start={info?.searchDefaults?.[s.id]} />)}
+            {g.searches.map((s) => <Search key={s.id} search={s} origin={origin} start={starts[s.id]} />)}
           </div>
         </section>
       ))}
@@ -104,7 +110,7 @@ export default function Searches({ info }) {
         <h2 id="g-pingone-events">PingOne Events lab index (ES|QL)</h2>
         <p className="muted">ES|QL on the index pingone-events-LAB forwards each PingOne event to. Discover opens in ES|QL mode with the query filled in.</p>
         <div className="cards">
-          <EventsFilter origin={origin} start={info?.searchDefaults?.["pe-actor-id"]} />
+          <EventsFilter origin={origin} start={starts["pe-actor-id"]} />
           {ESQL_SEARCHES.map((s) => <EsqlSearch key={s.id} search={s} origin={origin} />)}
         </div>
       </section>

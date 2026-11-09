@@ -598,6 +598,21 @@ describe("Searches tab", () => {
     expect(within(within(tab).getByTestId("search-priv-app")).getByTestId("search-problem")).toHaveTextContent("Type a value first.");
   });
 
+  it("live values from Elasticsearch win over the .env starting values, per search; a failed lookup keeps the .env ones", async () => {
+    override["/api/search-defaults"] = () => ({ ok: true, status: 200, json: async () => ({ source: "live", values: { "priv-user": "live-user", "pe-actor-id": "live-actor" }, failed: [], reason: null }) });
+    const { tab } = await open("mock", { "priv-user": "static-user", "priv-tool": "static-tool", "pe-actor-id": "static-actor" });
+    await waitFor(() => expect(within(within(tab).getByTestId("search-priv-user")).getByLabelText("User")).toHaveValue("live-user"));
+    expect(within(within(tab).getByTestId("search-priv-tool")).getByLabelText("Tool")).toHaveValue("static-tool");
+    expect(within(within(tab).getByTestId("pe-builder")).getByLabelText("User or application id")).toHaveValue("live-actor");
+  });
+
+  it("when the live lookup fails, the .env starting values stay", async () => {
+    override["/api/search-defaults"] = () => ({ ok: false, status: 500, json: async () => ({ error: "x" }) });
+    const { tab } = await open("mock", { "priv-user": "static-user" });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(within(within(tab).getByTestId("search-priv-user")).getByLabelText("User")).toHaveValue("static-user");
+  });
+
   it("the builder's user or application id starts filled in, can be changed, and Clear filters empties it", async () => {
     const { user, tab } = await open("mock", { "pe-actor-id": "actor-9" });
     const b = within(tab).getByTestId("pe-builder");
