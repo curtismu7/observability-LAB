@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Add a "Runs per rule" row to a COPY of Kibana's managed Detection rule monitoring dashboard. Run it yourself in a terminal.
+"""Add a "Rules: runs, speed and alerts" table to a COPY of Kibana's managed Detection rule monitoring dashboard. Run it yourself in a terminal.
 
 The managed dashboard cannot be edited, and the anonymous Kibana user is read-only, so saving the copy needs a user that may write dashboards.
-This script reads the live managed dashboard, adds one row under the five top boxes (one box per rule, each showing how many times that rule ran
-in the selected time range), and saves the result as a NEW dashboard. The managed one is never changed. Run it again to refresh the copy.
+This script reads the live managed dashboard, adds one table under the five top boxes (one row per rule: runs, average and slowest run time, new
+alerts, last run, for the selected time range), and saves the result as a NEW dashboard. The managed one is never changed. Run it again to refresh the copy.
 
   scripts/kibana-runs-per-rule.py                 type the password of a Kibana user that can save dashboards (default user: elastic; hidden)
   ES_SECRET=<name> ES_SECRET_KEY=<key> scripts/kibana-runs-per-rule.py   read it from a cluster Secret in your own shell
@@ -17,10 +17,11 @@ SOURCE_ID = "security-detection-rule-monitoring-default"
 NEW_ID = "detection-rule-monitoring-runs-per-rule"
 DATA_VIEW = "kibana-event-log-data-view"
 RUNS_ID = "7e6d1c20-0a4b-4f3e-9d51-5a1b2c3d4e5f"
-ROW_H = 6
+ROW_H = 9
 NOT_CUSTOMIZABLE = "This Kibana-managed dashboard can not be customized. To make a custom version, clone it or edit and save it as a new dashboard."
-COPY_NOTE = "This is a copy of the managed dashboard with a Runs per rule row added under the top boxes."
-LAYER, CNT, BRK = "a1b2c3d4-0000-4000-8000-000000000001", "a1b2c3d4-0000-4000-8000-000000000002", "a1b2c3d4-0000-4000-8000-000000000003"
+COPY_NOTE = "This is a copy of the managed dashboard with a table of every rule (runs, speed, alerts, last run) added under the top boxes."
+LAYER = "a1b2c3d4-0000-4000-8000-000000000001"
+COL = {k: f"a1b2c3d4-0000-4000-8000-00000000001{i}" for i, k in enumerate(["rule", "runs", "avg", "max", "new", "last"])}
 
 
 def build_copy(source):
@@ -38,23 +39,31 @@ def build_copy(source):
     new = copy.deepcopy(template)
     new["panelIndex"] = RUNS_ID
     new["gridData"] = {"i": RUNS_ID, "x": 0, "y": row_y, "w": 48, "h": ROW_H}
-    new["title"] = "Runs per rule"
+    new["title"] = "Rules: runs, speed and alerts"
     ec = new["embeddableConfig"]
-    ec["description"] = "How many times each detection rule ran in the selected time range."
+    ec["description"] = "Every detection rule in the selected time range: how many times it ran, how long runs took, new alerts and when it last ran."
     a = ec["attributes"]
-    a["visualizationType"] = "lnsMetric"
+    a["visualizationType"] = "lnsDatatable"
     a["references"] = [{"id": DATA_VIEW, "name": f"indexpattern-datasource-layer-{LAYER}", "type": "index-pattern"}, {"id": DATA_VIEW, "name": "filter-index", "type": "index-pattern"}]
     st = a["state"]
-    st["visualization"] = {"layerId": LAYER, "layerType": "data", "metricAccessor": CNT, "breakdownByAccessor": BRK, "maxCols": 3, "showBar": False,
-                       "valuesTextAlign": "center", "titlesTextAlign": "center", "valueFontMode": "fit"}
-    st["datasourceStates"] = {"formBased": {"layers": {LAYER: {
-        "columns": {
-            BRK: {"label": "Rule", "dataType": "string", "operationType": "terms", "scale": "ordinal", "sourceField": "rule.name", "isBucketed": True,
-                  "params": {"size": 30, "orderBy": {"type": "column", "columnId": CNT}, "orderDirection": "desc", "otherBucket": False, "missingBucket": False,
-                             "parentFormat": {"id": "terms"}, "include": [], "exclude": [], "includeIsRegex": False, "excludeIsRegex": False}},
-            CNT: {"label": "Runs", "dataType": "number", "operationType": "count", "isBucketed": False, "scale": "ratio", "sourceField": "___records___",
-                  "params": {"emptyAsNull": True}, "customLabel": True}},
-        "columnOrder": [BRK, CNT], "incompleteColumns": {}}}}}
+    metric = lambda label, op, field, dtype="number": {"label": label, "dataType": dtype, "operationType": op, "isBucketed": False, "scale": "ratio", "sourceField": field,
+                                                        "params": {"emptyAsNull": True}, "customLabel": True}
+    run_ms, new_alerts = "kibana.alert.rule.execution.metrics.total_run_duration_ms", "kibana.alert.rule.execution.metrics.alert_counts.new"
+    columns = {
+        COL["rule"]: {"label": "Rule", "dataType": "string", "operationType": "terms", "scale": "ordinal", "sourceField": "rule.name", "isBucketed": True, "customLabel": True,
+                      "params": {"size": 50, "orderBy": {"type": "alphabetical", "fallback": False}, "orderDirection": "asc", "otherBucket": False, "missingBucket": False,
+                                 "parentFormat": {"id": "terms"}, "include": [], "exclude": [], "includeIsRegex": False, "excludeIsRegex": False}},
+        COL["runs"]: metric("Runs", "count", "___records___"),
+        COL["avg"]: metric("Avg run (ms)", "average", run_ms),
+        COL["max"]: metric("Slowest run (ms)", "max", run_ms),
+        COL["new"]: metric("New alerts", "sum", new_alerts),
+        COL["last"]: metric("Last run", "max", "@timestamp", "date"),
+    }
+    columns[COL["avg"]]["params"]["format"] = {"id": "number", "params": {"decimals": 0}}
+    st["visualization"] = {"layerId": LAYER, "layerType": "data", "rowHeight": "single", "headerRowHeight": "single", "density": "compact",
+                           "paging": {"size": 10, "enabled": False},
+                           "columns": [{"columnId": c, "isTransposed": False, "isMetric": c != COL["rule"]} for c in columns]}
+    st["datasourceStates"] = {"formBased": {"layers": {LAYER: {"columns": columns, "columnOrder": list(columns), "incompleteColumns": {}}}}}
     st["internalReferences"], st["adHocDataViews"] = [], {}
 
     def point_at_data_view(node):  # saved filters name their index; keep them on the one data view the reference list resolves
@@ -74,7 +83,7 @@ def build_copy(source):
     refs += [{"id": DATA_VIEW, "name": f"{RUNS_ID}:indexpattern-datasource-layer-{LAYER}", "type": "index-pattern"}, {"id": DATA_VIEW, "name": f"{RUNS_ID}:filter-index", "type": "index-pattern"}]
     attrs["panelsJSON"] = json.dumps(panels)
     attrs["title"] = "Detection rule monitoring (runs per rule)"
-    attrs["description"] = "A copy of the managed Detection rule monitoring dashboard with one more row under the top boxes: one box per rule showing how many times it ran."
+    attrs["description"] = "A copy of the managed Detection rule monitoring dashboard with a table under the top boxes: one row per rule with its runs, run times, new alerts and last run."
     return {"attributes": attrs, "references": refs}
 
 
