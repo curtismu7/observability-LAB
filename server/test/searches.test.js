@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { ESQL_SEARCHES, SEARCH_GROUPS, SearchInputError, esqlUrl, buildKql, discoverUrl, kqlString, rison, searchRunUrl, MAX_INPUT, PINGONE_SERVICES, PRODUCTS, optionOf } from '../src/searches.js';
+import { ESQL_SEARCHES, PE_ACTOR_TYPES, PE_COLUMNS, PE_LIMITS, PE_RANGES, PE_SHOW, PE_STATUSES, PE_TYPE_GROUPS, PE_VIA, SEARCH_GROUPS, SearchInputError, buildEventsEsql, esqlString, esqlUrl, buildKql, discoverUrl, kqlString, rison, searchRunUrl, MAX_INPUT, PINGONE_SERVICES, PRODUCTS, optionOf } from '../src/searches.js';
 import { kibanaFrom, labLinksFrom, rison as configRison, siemFrom } from '../src/config.js';
 import { createApp } from '../src/app.js';
 
@@ -117,4 +117,60 @@ test('ES|QL links: Discover on the origin, the query as one Rison string in _a, 
     assert.match(s.esql, /^FROM pingone-events( \||$)/, s.id);
     assert.ok(!all.some((x) => x.id === s.id), 'ids do not clash with the KQL searches');
   }
+});
+
+const COLS = PE_COLUMNS;
+test('filter builder: no choices is the latest 50 events with readable columns', () => {
+  assert.equal(buildEventsEsql(), `FROM pingone-events | SORT @timestamp DESC | LIMIT 50 | KEEP ${COLS}`);
+  assert.equal(buildEventsEsql({}), buildEventsEsql());
+});
+
+test('filter builder: each choice adds one condition, joined with AND, in a fixed order', () => {
+  assert.equal(buildEventsEsql({ type: 'SESSION.UPDATED' }), `FROM pingone-events | WHERE eventType == "SESSION.UPDATED" | SORT @timestamp DESC | LIMIT 50 | KEEP ${COLS}`);
+  assert.match(buildEventsEsql({ type: 'family:SESSION' }), /WHERE eventType LIKE "SESSION\.\*" \|/);
+  assert.match(buildEventsEsql({ status: 'FAILED', actorType: 'USER', via: 'pull' }), /WHERE status == "FAILED" AND actorType == "USER" AND via == "pull" \|/);
+  assert.match(buildEventsEsql({ actorId: ' u-1 ', correlationId: 'c-1' }), /WHERE actorId == "u-1" AND correlationId == "c-1" \|/);
+  assert.match(buildEventsEsql({ order: 'asc', limit: 10 }), /SORT @timestamp ASC \| LIMIT 10 \|/);
+  assert.equal(buildEventsEsql({ actorId: '   ' }), buildEventsEsql(), 'a blank typed value is no filter');
+});
+
+test('filter builder: the counting views group, sort, and ignore order and row count', () => {
+  assert.equal(buildEventsEsql({ show: 'by-type' }), 'FROM pingone-events | STATS events = COUNT(*) BY eventType | SORT events DESC');
+  assert.equal(buildEventsEsql({ show: 'by-status', status: 'FAILED', limit: 500 }), 'FROM pingone-events | WHERE status == "FAILED" | STATS events = COUNT(*) BY status | SORT events DESC');
+  assert.match(buildEventsEsql({ show: 'by-actor' }), /WHERE actorId IS NOT NULL \| STATS events = COUNT\(\*\) BY actorId \| SORT events DESC \| LIMIT 20$/);
+  assert.match(buildEventsEsql({ show: 'by-hour' }), /BY hour = BUCKET\(@timestamp, 1 hour\) \| SORT hour$/);
+});
+
+test('filter builder: a typed value is ONE string, so it can never become more query', () => {
+  assert.equal(esqlString('a"b'), '"a\\"b"');
+  assert.equal(esqlString('a\\b'), '"a\\\\b"');
+  const evil = 'x" OR true | DROP eventType | WHERE "1"=="1';
+  const q = buildEventsEsql({ actorId: evil });
+  assert.equal(q, `FROM pingone-events | WHERE actorId == "x\\" OR true | DROP eventType | WHERE \\"1\\"==\\"1" | SORT @timestamp DESC | LIMIT 50 | KEEP ${COLS}`);
+  assert.equal(q.split('\n').length, 1);
+  for (const bad of ['a\nb', 'a\u0000b', 'a\u007fb', 'x'.repeat(MAX_INPUT + 1)]) assert.throws(() => buildEventsEsql({ correlationId: bad }), SearchInputError, JSON.stringify(bad).slice(0, 20));
+});
+
+test('filter builder: a value that is not in a list is refused, never put into the query', () => {
+  for (const bad of [{ type: 'SESSION.UPDATED" | DROP x' }, { type: 'family:SESSION.*' }, { status: 'x' }, { actorType: 'x' }, { via: 'x' }, { range: 'now-1y' }, { show: 'x' }, { order: 'up' }, { limit: 7 }, { limit: '50; DROP' }]) {
+    assert.throws(() => buildEventsEsql(bad), SearchInputError, JSON.stringify(bad));
+  }
+});
+
+test('filter builder: every choice in every list builds a query that names only pingone-events', () => {
+  const types = PE_TYPE_GROUPS.flatMap((g) => g.options.map((o) => o.value));
+  assert.ok(types.length > 20);
+  for (const v of types) assert.match(buildEventsEsql({ type: v }), /^FROM pingone-events \| WHERE eventType (==|LIKE) "[A-Z_.*]+" \|/, v);
+  for (const o of PE_STATUSES) assert.doesNotThrow(() => buildEventsEsql({ status: o.value }));
+  for (const o of PE_ACTOR_TYPES) assert.doesNotThrow(() => buildEventsEsql({ actorType: o.value }));
+  for (const o of PE_VIA) assert.doesNotThrow(() => buildEventsEsql({ via: o.value }));
+  for (const o of PE_RANGES) assert.doesNotThrow(() => buildEventsEsql({ range: o.value }));
+  for (const o of PE_SHOW) assert.doesNotThrow(() => buildEventsEsql({ show: o.value }));
+  for (const n of PE_LIMITS) assert.doesNotThrow(() => buildEventsEsql({ limit: n }));
+  for (const g of PE_TYPE_GROUPS) assert.ok(g.options[0].value.startsWith('family:'), 'each group starts with its All-events choice');
+});
+
+test('ES|QL link: the time range is the one the form chose', () => {
+  assert.ok(esqlUrl('http://k', 'FROM a', 'now-7d').includes('_g=(time:(from:now-7d,to:now))'));
+  assert.ok(esqlUrl('http://k', 'FROM a').includes('_g=(time:(from:now-24h,to:now))'));
 });

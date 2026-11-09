@@ -14,8 +14,8 @@ export function discoverUrl(origin, dataView, kql) {
 }
 
 // Discover in ES|QL mode, with the query filled in and the last 24 hours. ES|QL reads an index directly, so no data view is needed.
-export function esqlUrl(origin, esql) {
-  return `${origin}/app/discover#/?_g=(time:(from:now-24h,to:now))&_a=(query:(esql:${encodeURIComponent(rison(esql))}))`;
+export function esqlUrl(origin, esql, from = 'now-24h') {
+  return `${origin}/app/discover#/?_g=(time:(from:${from},to:now))&_a=(query:(esql:${encodeURIComponent(rison(esql))}))`;
 }
 
 export const MAX_INPUT = 200;
@@ -123,3 +123,89 @@ export const ESQL_SEARCHES = [
   { id: 'pe-failed', title: 'Failures', question: 'Which events failed?', esql: `FROM ${ESQL_INDEX} | WHERE status == "FAILED" | SORT @timestamp DESC | LIMIT 50` },
   { id: 'pe-by-type', title: 'Events by type', question: 'Which event types arrive, and how many?', esql: `FROM ${ESQL_INDEX} | STATS events = COUNT(*) BY eventType | SORT events DESC` },
 ];
+
+// ---- The PingOne events filter builder: pick values, get the ES|QL. Every choice is a list; the two typed values are put in as ONE quoted
+// string (a backslash and a quote escaped, control characters refused), so a typed value can never become more query. The lists show the
+// event types, results and sources seen so far on pingone-events; a type not listed is still reachable through its "All ... events" choice.
+const FAMILIES = [
+  ['DAVINCI_INTERACTION', 'DaVinci'], ['DECISION_ENDPOINT', 'Decision endpoint'], ['DEVICE_AUTHENTICATION', 'MFA (device)'], ['FLOW', 'Sign-in flow'],
+  ['PASSWORD', 'Password'], ['RISK_EVALUATION', 'Risk'], ['SESSION', 'Session'], ['USER', 'User'],
+];
+const TYPE_LABELS = {
+  'DAVINCI_INTERACTION.START_INTERACTION': 'a flow started', 'DAVINCI_INTERACTION.RECEIVE_REQUEST': 'request received',
+  'DAVINCI_INTERACTION.SEND_RESPONSE': 'response sent', 'DAVINCI_INTERACTION.SEND_ERROR_RESPONSE': 'error response sent',
+  'DECISION_ENDPOINT.DECISION_REQUEST_EVALUATED': 'request evaluated',
+  'DEVICE_AUTHENTICATION.CHALLENGED': 'device challenged', 'DEVICE_AUTHENTICATION.SUCCEEDED': 'device approved',
+  'FLOW.CREATED': 'started', 'FLOW.UPDATED': 'updated', 'FLOW.DELETED': 'ended',
+  'PASSWORD.CHECK_SUCCEEDED': 'accepted', 'PASSWORD.CHECK_FAILED': 'rejected',
+  'RISK_EVALUATION.CREATED': 'created', 'RISK_EVALUATION.UPDATED': 'updated', 'RISK_EVALUATION.STAGING_CREATED': 'staged', 'RISK_EVALUATION.COMPLETED': 'completed',
+  'SESSION.CREATED': 'created', 'SESSION.UPDATED': 'updated', 'SESSION.DELETED': 'ended',
+  'USER.ACCESS_ALLOWED': 'access allowed', 'USER.ACCESS_DENIED': 'access denied', 'USER.UPDATED': 'updated',
+};
+// Groups for the Event type list: "All <family> events" (eventType LIKE "FAMILY.*") then each type of that family.
+export const PE_TYPE_GROUPS = FAMILIES.map(([family, name]) => ({
+  label: name,
+  options: [
+    { value: `family:${family}`, label: `All ${name} events` },
+    ...Object.keys(TYPE_LABELS).filter((t) => t.startsWith(`${family}.`)).map((t) => ({ value: t, label: `${name}: ${TYPE_LABELS[t]} (${t})` })),
+  ],
+}));
+const peTypeValues = new Set(PE_TYPE_GROUPS.flatMap((g) => g.options.map((o) => o.value)));
+export const PE_STATUSES = [
+  { value: 'SUCCESS', label: 'Succeeded (SUCCESS)' }, { value: 'FAILED', label: 'Failed (FAILED)' },
+  { value: 'SIGN_ON_REQUIRED', label: 'Sign-on required (SIGN_ON_REQUIRED)' }, { value: 'USERNAME_PASSWORD_REQUIRED', label: 'Password required (USERNAME_PASSWORD_REQUIRED)' },
+  { value: 'MFA_REQUIRED', label: 'MFA required (MFA_REQUIRED)' }, { value: 'HIGH', label: 'High risk (HIGH)' },
+];
+export const PE_ACTOR_TYPES = [{ value: 'USER', label: 'A person (USER)' }, { value: 'CLIENT', label: 'An application (CLIENT)' }];
+export const PE_VIA = [{ value: 'webhook', label: 'PingOne pushed it (webhook)' }, { value: 'pull', label: 'The lab asked PingOne (pull)' }];
+export const PE_RANGES = [
+  { value: 'now-15m', label: 'Last 15 minutes' }, { value: 'now-1h', label: 'Last hour' }, { value: 'now-24h', label: 'Last 24 hours' },
+  { value: 'now-7d', label: 'Last 7 days' }, { value: 'now-30d', label: 'Last 30 days' },
+];
+export const PE_SHOW = [
+  { value: 'events', label: 'The events themselves' }, { value: 'by-type', label: 'How many of each event type' },
+  { value: 'by-status', label: 'How many of each result' }, { value: 'by-actor', label: 'How many per user or application' },
+  { value: 'by-hour', label: 'How many per hour' },
+];
+export const PE_LIMITS = [10, 50, 100, 500];
+export const PE_ORDERS = [{ value: 'desc', label: 'Newest first' }, { value: 'asc', label: 'Oldest first' }];
+export const PE_COLUMNS = '@timestamp, eventType, status, actorType, actorId, correlationId, resource, via';
+export const PE_DEFAULTS = { type: '', status: '', actorType: '', via: '', actorId: '', correlationId: '', range: 'now-24h', show: 'events', limit: 50, order: 'desc' };
+// A typed value as an ES|QL string literal. Empty (after trimming): no filter. Too long or with control characters: refused.
+export function esqlString(value) {
+  const v = String(value ?? '').trim();
+  if (!v) return null;
+  if (v.length > MAX_INPUT) throw new SearchInputError(`At most ${MAX_INPUT} characters.`);
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f]/.test(v)) throw new SearchInputError('Control characters are not allowed.');
+  return `"${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+const known = (list, v, what) => {
+  if (!list.some((o) => (typeof o === 'object' ? o.value : o) === v)) throw new SearchInputError(`Pick ${what} from the list.`);
+  return v;
+};
+// The ES|QL for a set of filter choices. Unknown list values are refused, so only the typed fields carry free text.
+export function buildEventsEsql(choices = {}) {
+  const o = { ...PE_DEFAULTS, ...choices };
+  const where = [];
+  if (o.type) {
+    known([...peTypeValues], o.type, 'an event type');
+    where.push(o.type.startsWith('family:') ? `eventType LIKE "${o.type.slice(7)}.*"` : `eventType == "${o.type}"`);
+  }
+  if (o.status) where.push(`status == "${known(PE_STATUSES, o.status, 'a result')}"`);
+  if (o.actorType) where.push(`actorType == "${known(PE_ACTOR_TYPES, o.actorType, 'who')}"`);
+  if (o.via) where.push(`via == "${known(PE_VIA, o.via, 'a source')}"`);
+  const actor = esqlString(o.actorId); if (actor) where.push(`actorId == ${actor}`);
+  const corr = esqlString(o.correlationId); if (corr) where.push(`correlationId == ${corr}`);
+  known(PE_RANGES, o.range, 'a time range'); known(PE_SHOW, o.show, 'what to show'); known(PE_ORDERS, o.order, 'an order');
+  if (!PE_LIMITS.includes(Number(o.limit))) throw new SearchInputError('Pick how many from the list.');
+  if (o.show === 'by-actor') where.push('actorId IS NOT NULL');
+  const tail = {
+    events: `SORT @timestamp ${o.order.toUpperCase()} | LIMIT ${Number(o.limit)} | KEEP ${PE_COLUMNS}`,
+    'by-type': 'STATS events = COUNT(*) BY eventType | SORT events DESC',
+    'by-status': 'STATS events = COUNT(*) BY status | SORT events DESC',
+    'by-actor': 'STATS events = COUNT(*) BY actorId | SORT events DESC | LIMIT 20',
+    'by-hour': 'STATS events = COUNT(*) BY hour = BUCKET(@timestamp, 1 hour) | SORT hour',
+  }[o.show];
+  return ['FROM pingone-events', ...(where.length ? [`WHERE ${where.join(' AND ')}`] : []), tail].join(' | ');
+}

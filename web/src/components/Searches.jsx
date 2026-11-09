@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CopyButton } from "./PrivilegeKibana";
+import EventsFilter from "./EventsFilter";
 import { visible } from "../safeText";
 import { ESQL_INDEX, ESQL_SEARCHES, SEARCH_GROUPS, SECURITY_ALERTS_PATH, SearchInputError, buildKql, esqlUrl, optionOf, searchRunUrl } from "../../../server/src/searches.js";
 
@@ -103,6 +104,7 @@ export default function Searches({ info }) {
         <h2 id="g-pingone-events">PingOne Events lab index (ES|QL)</h2>
         <p className="muted">ES|QL on the index pingone-events-LAB forwards each PingOne event to. Discover opens in ES|QL mode with the query filled in.</p>
         <div className="cards">
+          <EventsFilter origin={origin} />
           {ESQL_SEARCHES.map((s) => <EsqlSearch key={s.id} search={s} origin={origin} />)}
         </div>
       </section>
