@@ -9,7 +9,7 @@ import { hostCheck, sameOriginWrites } from './safety.js';
 import { createHealth } from './health.js';
 import { mountShelfRoute } from './shelfLink.js';
 import { loadCast, verticalFrom, VERTICALS } from './cast.js';
-import { SIEM_DEFAULTS, SIEM_SERVICE, esPortForwardFrom, kibanaFrom, labLinksFrom, lokiUrlFrom, modeFrom, realAvailableFrom, realProblemFrom, siemFrom, siemProblemFrom } from './config.js';
+import { SIEM_DEFAULTS, SIEM_SERVICE, esPortForwardFrom, kibanaFrom, labLinksFrom, lokiUrlFrom, modeFrom, realAvailableFrom, realProblemFrom, searchDefaultsFrom, siemFrom, siemProblemFrom } from './config.js';
 import { buildStory } from './story.js';
 import { DIAGRAM_NAMES, buildDiagram } from './diagramData.js';
 import { RELABEL_RULE } from './logData.js';
@@ -67,6 +67,7 @@ export function createApp({
       // Never the read key: only whether the SIEM settings are usable, why not, which index, and the Kibana link.
       siem: { service: SIEM_SERVICE, configured: siem !== null, problem: siemProblemFrom(env), index: siem?.index || env.PRIVILEGE_SIEM_INDEX || SIEM_DEFAULTS.index, esPortForward: esPortForwardFrom(env), kibana: kibanaFrom(env) },
       labLinks: labLinksFrom(env),
+      searchDefaults: searchDefaultsFrom(env), // starting values for the Searches that ask you to type; ids, never keys
     });
   });
   // Rule 19: exactly { source: "mock"|"real" }; 409 when Real is not configured.

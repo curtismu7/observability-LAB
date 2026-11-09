@@ -11,11 +11,11 @@ import { getJson, resetWorkspace, setMode } from "./api";
 
 export const TABS = [
   { id: "logs", label: "Logs" },
+  { id: "searches", label: "Searches", featured: true }, // second and highlighted: it is what most people come for
   { id: "products", label: "Products" },
   { id: "pipeline", label: "Pipeline" },
   { id: "label", label: "Label lab" },
   { id: "alerts", label: "Alerts" },
-  { id: "searches", label: "Searches" },
   { id: "talk", label: "Talk track" },
 ];
 // The banner is never blank: until /api/scenarios answers (or if it fails) it says the safe thing.
@@ -131,7 +131,7 @@ export default function App() {
         <p className="sr-only" role="status" aria-live="polite" data-testid="status">{resetMsg}</p>
         <div role="tablist" aria-label="Lab sections" className="tabs" ref={tabsRef}>
           {TABS.map((t, i) => (
-            <button key={t.id} id={`tab-${t.id}`} role="tab" type="button" aria-selected={tab === t.id} aria-controls={`panel-${t.id}`} tabIndex={tab === t.id ? 0 : -1}
+            <button key={t.id} id={`tab-${t.id}`} role="tab" type="button" className={t.featured ? "tab-featured" : undefined} aria-selected={tab === t.id} aria-controls={`panel-${t.id}`} tabIndex={tab === t.id ? 0 : -1}
               onClick={() => select(t.id)} onKeyDown={(e) => onKeyTab(e, i)}>{t.label}</button>
           ))}
         </div>

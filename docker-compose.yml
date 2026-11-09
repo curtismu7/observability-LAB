@@ -23,6 +23,7 @@ services:
       # Privilege SIEM (Real, read-only): passed through from YOUR shell, never written here. Empty PRIVILEGE_SIEM_URL = off.
       # In Docker use PRIVILEGE_SIEM_URL=http://127.0.0.1:9200 with the `siem` profile: the forwarder below makes that the
       # Mac's localhost:9200 (the Elasticsearch port-forward). The lab still accepts only a loopback URL.
+      OBS_SEARCH_DEFAULTS: ${OBS_SEARCH_DEFAULTS:-}
       PRIVILEGE_SIEM_URL: ${PRIVILEGE_SIEM_URL:-}
       PRIVILEGE_SIEM_INDEX: ${PRIVILEGE_SIEM_INDEX:-}
       PRIVILEGE_SIEM_READ_APIKEY: ${PRIVILEGE_SIEM_READ_APIKEY:-}

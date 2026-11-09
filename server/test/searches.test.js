@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ESQL_SEARCHES, PE_ACTOR_TYPES, PE_COLUMNS, PE_LIMITS, PE_RANGES, PE_SHOW, PE_STATUSES, PE_TYPE_GROUPS, PE_VIA, SEARCH_GROUPS, SearchInputError, buildEventsEsql, esqlString, esqlUrl, buildKql, discoverUrl, kqlString, rison, searchRunUrl, MAX_INPUT, PINGONE_SERVICES, PRODUCTS, optionOf } from '../src/searches.js';
-import { kibanaFrom, labLinksFrom, rison as configRison, siemFrom } from '../src/config.js';
+import { kibanaFrom, labLinksFrom, rison as configRison, searchDefaultsFrom, siemFrom } from '../src/config.js';
+import { withServer } from './helpers.js';
 import { createApp } from '../src/app.js';
 
 const all = SEARCH_GROUPS.flatMap((g) => g.searches);
@@ -173,4 +174,18 @@ test('filter builder: every choice in every list builds a query that names only 
 test('ES|QL link: the time range is the one the form chose', () => {
   assert.ok(esqlUrl('http://k', 'FROM a', 'now-7d').includes('_g=(time:(from:now-7d,to:now))'));
   assert.ok(esqlUrl('http://k', 'FROM a').includes('_g=(time:(from:now-24h,to:now))'));
+});
+
+test('searchDefaultsFrom: starting values come from OBS_SEARCH_DEFAULTS; anything malformed is dropped, never thrown', () => {
+  assert.deepEqual(searchDefaultsFrom({}), {});
+  assert.deepEqual(searchDefaultsFrom({ OBS_SEARCH_DEFAULTS: '{"priv-user":" u-1 ","priv-tool":"SearchIndexTool"}' }), { 'priv-user': 'u-1', 'priv-tool': 'SearchIndexTool' });
+  for (const bad of ['not json', '[]', '"x"', 'null', '{"priv-user": 5}', '{"priv-user": ""}', '{"Bad Id": "x"}', '{"__proto__": "x"}', `{"priv-user": "${'a'.repeat(201)}"}`, '{"priv-user": "a\\nb"}']) {
+    assert.deepEqual(searchDefaultsFrom({ OBS_SEARCH_DEFAULTS: bad }), {}, bad);
+  }
+  assert.deepEqual(searchDefaultsFrom({ OBS_SEARCH_DEFAULTS: '{"priv-user":"ok","pf-client":7}' }), { 'priv-user': 'ok' }, 'one bad value does not cost the good ones');
+});
+
+test('GET /api/info carries the starting values (and an empty object when none are set)', async () => {
+  await withServer(async (url) => { assert.deepEqual((await (await fetch(`${url}/api/info`)).json()).searchDefaults, {}); });
+  await withServer(async (url) => { assert.deepEqual((await (await fetch(`${url}/api/info`)).json()).searchDefaults, { 'priv-user': 'u-1' }); }, { env: { OBS_SEARCH_DEFAULTS: '{"priv-user":"u-1"}' } });
 });

@@ -36,6 +36,8 @@ label.inline { display: inline-flex; margin-top: 0; font-weight: 400; }
 label.pfilter { gap: 8px; align-items: center; margin-right: 12px; font-weight: 600; }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--th-border); margin: 8px 0 12px; overflow-x: auto; }
 .tabs [role="tab"] { border-radius: var(--radius-md) var(--radius-md) 0 0; border-bottom: none; white-space: nowrap; }
+.tabs [role="tab"].tab-featured:not([aria-selected="true"]) { border: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); font-weight: 700; }
+.tabs [role="tab"].tab-featured::before { content: "★" / ""; margin-right: 6px; }
 .tabs [role="tab"][aria-selected="true"] { border-color: var(--accent); font-weight: 700; background: var(--accent); color: var(--on-accent); box-shadow: none; }
 .gate, .posture { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); align-items: start; }
 .posture > .panel--warn { grid-column: 1 / -1; }

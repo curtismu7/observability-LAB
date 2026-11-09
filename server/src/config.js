@@ -162,3 +162,20 @@ export function labLinksFrom(env = process.env) {
     fieldNotes: one(env.FIELD_NOTES_URL, LAB_LINK_DEFAULTS.fieldNotes),
   };
 }
+
+// Starting values for the Searches that ask you to type something (a user, an agent key, a tool...). OBS_SEARCH_DEFAULTS is a JSON object,
+// search id -> value, set in the lab's own .env (never in the repo: the values are real ids). Anything malformed is dropped, so a bad
+// line costs the starting values and nothing else. A live lookup can later fill the same shape.
+export function searchDefaultsFrom(env = process.env) {
+  let raw;
+  try { raw = env.OBS_SEARCH_DEFAULTS ? JSON.parse(env.OBS_SEARCH_DEFAULTS) : null; } catch { return {}; }
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out = {};
+  for (const [id, value] of Object.entries(raw).slice(0, 40)) {
+    if (!/^[a-z0-9-]{1,40}$/.test(id) || typeof value !== 'string') continue;
+    const v = value.trim();
+    // eslint-disable-next-line no-control-regex
+    if (v && v.length <= 200 && !/[\u0000-\u001f\u007f]/.test(v)) out[id] = v;
+  }
+  return out;
+}

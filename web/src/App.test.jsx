@@ -494,8 +494,8 @@ describe("Searches tab", () => {
   const KIB = { url: "https://kibana.example:5601", settingValid: true, portForward: "pf-cmd", dashboard: "https://kibana.example:5601/app/dashboards#/view/privilege-logs-dashboard", securityAlerts: "https://kibana.example:5601/app/security/alerts",
     links: [{ id: "privilege-overview", title: "Privilege overview", description: "d", url: "https://kibana.example:5601/app/dashboards#/view/privilege-overview" }, { id: "security-rules", title: "Security detection rules", url: "https://kibana.example:5601/app/security/rules" }] };
   const LABS = { privilegeLogging: { url: "http://127.0.0.1:7801/#privilege", settingValid: true }, fieldNotes: { url: "http://127.0.0.1:7804", settingValid: false } };
-  const open = async (mode = "mock") => {
-    override["/api/info"] = () => ({ ok: true, status: 200, json: async () => ({ mode, source: mode, simulated: mode === "mock", realAvailable: true, realHint: null, siem: { service: "privilege-siem", configured: true, problem: null, index: "i", esPortForward: "p", kibana: KIB }, labLinks: LABS }) });
+  const open = async (mode = "mock", searchDefaults = {}) => {
+    override["/api/info"] = () => ({ ok: true, status: 200, json: async () => ({ searchDefaults, mode, source: mode, simulated: mode === "mock", realAvailable: true, realHint: null, siem: { service: "privilege-siem", configured: true, problem: null, index: "i", esPortForward: "p", kibana: KIB }, labLinks: LABS }) });
     const user = userEvent.setup();
     await ready();
     await user.click(screen.getByRole("tab", { name: "Searches" }));
@@ -572,6 +572,43 @@ describe("Searches tab", () => {
     expect(run).toHaveAttribute("rel", "noopener noreferrer");
     await user.click(within(card).getByRole("button", { name: "Copy the query Policy denials" }));
     expect(await navigator.clipboard.readText()).toBe(kql);
+  });
+
+  it("Searches is the second tab and is marked as the featured one", async () => {
+    await open();
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs.slice(0, 3).map((t) => t.textContent)).toEqual(["Logs", "Searches", "Products"]);
+    expect(tabs[1]).toHaveClass("tab-featured");
+    expect(tabs.filter((t) => t.classList.contains("tab-featured"))).toHaveLength(1);
+  });
+
+  it("searches that ask for a value start filled in from the lab's starting values, and the person can change them", async () => {
+    const { user, tab } = await open("mock", { "priv-user": "u-123", "priv-tool": "ToolX", "pe-actor-id": "actor-9" });
+    const card = within(tab).getByTestId("search-priv-user");
+    const box = within(card).getByLabelText("User");
+    expect(box).toHaveValue("u-123");
+    expect(within(card).queryByTestId("search-problem")).toBeNull();
+    expect(within(card).getByTestId("kql")).toHaveTextContent('privilege.user : "u-123"');
+    expect(within(card).getByRole("link", { name: "Run Everything one user did in Discover" })).toBeInTheDocument();
+    expect(within(within(tab).getByTestId("search-priv-tool")).getByLabelText("Tool")).toHaveValue("ToolX");
+    await user.clear(box);
+    await user.type(box, "someone-else");
+    expect(within(card).getByTestId("kql")).toHaveTextContent('privilege.user : "someone-else"');
+    // A search with no starting value is unchanged: empty, and it still asks.
+    expect(within(within(tab).getByTestId("search-priv-app")).getByTestId("search-problem")).toHaveTextContent("Type a value first.");
+  });
+
+  it("the builder's user or application id starts filled in, can be changed, and Clear filters empties it", async () => {
+    const { user, tab } = await open("mock", { "pe-actor-id": "actor-9" });
+    const b = within(tab).getByTestId("pe-builder");
+    expect(within(b).getByLabelText("User or application id")).toHaveValue("actor-9");
+    expect(within(b).getByTestId("pe-esql").textContent).toContain('actorId == "actor-9"');
+    await user.clear(within(b).getByLabelText("User or application id"));
+    await user.type(within(b).getByLabelText("User or application id"), "other");
+    expect(within(b).getByTestId("pe-esql").textContent).toContain('actorId == "other"');
+    await user.click(within(b).getByRole("button", { name: "Clear filters" }));
+    expect(within(b).getByLabelText("User or application id")).toHaveValue("");
+    expect(within(b).getByTestId("pe-esql").textContent).not.toContain("actorId ==");
   });
 
   it("an input search refuses empty input, then escapes quotes and backslashes into one value", async () => {
