@@ -523,6 +523,40 @@ describe("Searches tab", () => {
     expect(await navigator.clipboard.readText()).toBe(esql);
   });
 
+  it("the filter builder writes the ES|QL as choices are made, and Run in Discover carries the chosen time range", async () => {
+    const { user, tab } = await open();
+    const b = within(tab).getByTestId("pe-builder");
+    const q = () => within(b).getByTestId("pe-esql").textContent;
+    expect(q()).toBe("FROM pingone-events | SORT @timestamp DESC | LIMIT 50 | KEEP @timestamp, eventType, status, actorType, actorId, correlationId, resource, via");
+    await user.selectOptions(within(b).getByLabelText("Event type"), "family:SESSION");
+    await user.selectOptions(within(b).getByLabelText("Result"), "FAILED");
+    await user.selectOptions(within(b).getByLabelText("When"), "now-7d");
+    expect(q()).toContain('WHERE eventType LIKE "SESSION.*" AND status == "FAILED"');
+    const run = within(b).getByRole("link", { name: "Run Build your own search in Discover" });
+    expect(run.getAttribute("href")).toContain("_g=(time:(from:now-7d,to:now))");
+    expect(run.getAttribute("href").startsWith("https://kibana.example:5601/app/discover#/?")).toBe(true);
+    expect(run).toHaveAttribute("rel", "noopener noreferrer");
+    await user.click(within(b).getByRole("button", { name: "Copy the query Build your own search" }));
+    expect(await navigator.clipboard.readText()).toBe(q());
+  });
+
+  it("the filter builder hides order and row count for the counting views, escapes typed values, and Clear filters resets", async () => {
+    const { user, tab } = await open();
+    const b = within(tab).getByTestId("pe-builder");
+    await user.type(within(b).getByLabelText("User or application id"), 'a"b');
+    expect(within(b).getByTestId("pe-esql").textContent).toContain('actorId == "a\\"b"');
+    expect(within(b).getByLabelText("Order")).toBeInTheDocument();
+    await user.selectOptions(within(b).getByLabelText("Show me"), "by-type");
+    expect(within(b).queryByLabelText("Order")).toBeNull();
+    expect(within(b).queryByLabelText("How many")).toBeNull();
+    expect(within(b).getByTestId("pe-esql").textContent).toContain("STATS events = COUNT(*) BY eventType");
+    await user.click(within(b).getByRole("button", { name: "Clear filters" }));
+    expect(within(b).getByTestId("pe-esql").textContent).toMatch(/^FROM pingone-events \| SORT @timestamp DESC/);
+    await user.type(within(b).getByLabelText("Follow one sign-in (correlation id)"), "x".repeat(201));
+    expect(within(b).getByTestId("pe-problem")).toHaveTextContent("At most 200 characters.");
+    expect(within(b).queryByRole("link", { name: "Run Build your own search in Discover" })).toBeNull();
+  });
+
   it("Real has no Mock note", async () => {
     const { tab } = await open("real");
     expect(within(tab).queryByTestId("searches-mock-note")).toBeNull();
