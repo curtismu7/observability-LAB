@@ -1,6 +1,6 @@
-import { useState } from "react";
 import { CopyButton } from "./PrivilegeKibana";
 import EventsFilter from "./EventsFilter";
+import useStarting from "../useStarting";
 import { visible } from "../safeText";
 import { ESQL_INDEX, ESQL_SEARCHES, SEARCH_GROUPS, SECURITY_ALERTS_PATH, SearchInputError, buildKql, esqlUrl, optionOf, searchRunUrl } from "../../../server/src/searches.js";
 
@@ -8,9 +8,9 @@ const external = { target: "_blank", rel: "noopener noreferrer" };
 export const DEFAULT_KIBANA = "http://localhost:5601";
 
 // One search: the question, an optional input that goes into the KQL as one quoted value, Copy and Run in Discover.
-function Search({ search, origin }) {
+function Search({ search, origin, start }) {
   const first = search.input?.kind === "select" ? optionOf(search.input.options[0]).value : "";
-  const [value, setValue] = useState(first);
+  const [value, setValue] = useStarting(search.input?.kind === "text" ? start ?? first : first);
   let kql = null; let problem = null;
   try { kql = buildKql(search, value); } catch (e) { if (e instanceof SearchInputError) problem = e.message; else throw e; }
   const shown = kql ?? search.kql.replace("{value}", () => `"<${search.input.label.toLowerCase()}>"`);
@@ -96,7 +96,7 @@ export default function Searches({ info }) {
           <h2 id={`g-${g.id}`}>{g.title} {g.pending && <span className="tag tag--warn" data-testid="pending">data appears once PingOne forwarding is live</span>}</h2>
           <p className="muted">{g.note}</p>
           <div className="cards">
-            {g.searches.map((s) => <Search key={s.id} search={s} origin={origin} />)}
+            {g.searches.map((s) => <Search key={s.id} search={s} origin={origin} start={info?.searchDefaults?.[s.id]} />)}
           </div>
         </section>
       ))}
@@ -104,7 +104,7 @@ export default function Searches({ info }) {
         <h2 id="g-pingone-events">PingOne Events lab index (ES|QL)</h2>
         <p className="muted">ES|QL on the index pingone-events-LAB forwards each PingOne event to. Discover opens in ES|QL mode with the query filled in.</p>
         <div className="cards">
-          <EventsFilter origin={origin} />
+          <EventsFilter origin={origin} start={info?.searchDefaults?.["pe-actor-id"]} />
           {ESQL_SEARCHES.map((s) => <EsqlSearch key={s.id} search={s} origin={origin} />)}
         </div>
       </section>

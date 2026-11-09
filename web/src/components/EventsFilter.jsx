@@ -1,4 +1,5 @@
 import { useState } from "react";
+import useStarting from "../useStarting";
 import { CopyButton } from "./PrivilegeKibana";
 import { visible } from "../safeText";
 import {
@@ -13,9 +14,11 @@ const Pick = ({ id, label, value, onChange, children }) => (
 const Options = ({ list, any }) => (<>{any && <option value="">{any}</option>}{list.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</>);
 
 // Pick values, get the ES|QL: nobody has to know Kibana. Copy it or open it in Discover with the same time range. The lab never calls Kibana.
-export default function EventsFilter({ origin }) {
-  const [c, setC] = useState(PE_DEFAULTS);
-  const set = (k) => (v) => setC((p) => ({ ...p, [k]: v }));
+export default function EventsFilter({ origin, start }) {
+  const [rest, setRest] = useState(PE_DEFAULTS);
+  const [actorId, setActorId] = useStarting(start); // starts filled in with an id the lab knows; the person can change or clear it
+  const c = { ...rest, actorId };
+  const set = (k) => (v) => (k === "actorId" ? setActorId(v) : setRest((p) => ({ ...p, [k]: v })));
   let esql = null; let problem = null;
   try { esql = buildEventsEsql(c); } catch (e) { if (e instanceof SearchInputError) problem = e.message; else throw e; }
   const rows = c.show === "events";
@@ -48,7 +51,7 @@ export default function EventsFilter({ origin }) {
           <p>
             <CopyButton text={esql} label="the query Build your own search" />{" "}
             <a href={esqlUrl(origin, esql, c.range)} aria-label="Run Build your own search in Discover" {...external}>Run in Discover</a>{" "}
-            <button type="button" onClick={() => setC(PE_DEFAULTS)}>Clear filters</button>
+            <button type="button" onClick={() => { setRest(PE_DEFAULTS); setActorId(""); }}>Clear filters</button>
           </p>
         </>
       )}
