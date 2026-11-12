@@ -6,6 +6,7 @@ import Alerts from "./components/Alerts";
 import DiagramTab from "./components/DiagramTab";
 import TalkTrack from "./components/TalkTrack";
 import ShelfLink from "./components/ShelfLink";
+import TopMenu, { applyFontSize } from "./top-menu/TopMenu";
 import Searches from "./components/Searches";
 import { getJson, resetWorkspace, setMode } from "./api";
 
@@ -20,6 +21,7 @@ export const TABS = [
 ];
 // The banner is never blank: until /api/scenarios answers (or if it fails) it says the safe thing.
 export const BANNER_UNKNOWN = "SIMULATED: seeded, synthetic log events and mock alert rules. Nothing here reads a real product log or calls a real tenant.";
+const THEMES = ["auto", "light", "dark"];
 
 const hashParts = () => {
   const h = window.location.hash.replace("#", "");
@@ -27,6 +29,7 @@ const hashParts = () => {
   if (m) return { tab: "logs", scenario: m[1] };
   return { tab: TABS.some((t) => t.id === h) ? h : "logs", scenario: null };
 };
+const savedTheme = () => { try { const t = window.localStorage.getItem("obslab.theme"); return THEMES.includes(t) ? t : "auto"; } catch { return "auto"; } };
 
 export default function App() {
   const [vertical, setVertical] = useState("retail");
@@ -38,11 +41,22 @@ export default function App() {
   const [presenter, setPresenter] = useState(false);
   const [dataSignal, setDataSignal] = useState(0); // bump = every panel reloads its data
   const [resetMsg, setResetMsg] = useState("");
+  const [theme, setTheme] = useState(savedTheme);
+  const [fontStep, setFontStep] = useState(() => { try { const f = window.localStorage.getItem("obslab.font"); return ["S", "M", "L"].includes(f) ? f : "M"; } catch { return "M"; } });
   const tabsRef = useRef(null);
   const bump = useCallback(() => setDataSignal((n) => n + 1), []);
 
   const loadInfo = useCallback(() => getJson("/api/info").then(setInfo, () => setInfo(null)), []);
   useEffect(() => { loadInfo(); }, [loadInfo]);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === "auto") root.removeAttribute("data-theme"); else root.setAttribute("data-theme", theme);
+    try { window.localStorage.setItem("obslab.theme", theme); } catch { /* storage blocked */ }
+  }, [theme]);
+  useEffect(() => {
+    applyFontSize(fontStep);
+    try { window.localStorage.setItem("obslab.font", fontStep); } catch { /* storage blocked */ }
+  }, [fontStep]);
   useEffect(() => { getJson(`/api/scenarios?vertical=${encodeURIComponent(vertical)}`).then((j) => { setStory(j); setError(null); }, (e) => setError(e.message)); }, [vertical]);
   useEffect(() => {
     const on = () => { const p = hashParts(); setTab(p.tab); setRequested(p.scenario); };
@@ -105,25 +119,19 @@ export default function App() {
             {!presenter && story && <p className="intro">{story.intro}</p>}
           </div>
           <div className="head__tools">
-            <ShelfLink />
-            <span className="chip" data-testid="mode">Mode: {info ? info.mode : "..."}</span>
-            {info && (
-              <div className="seg" role="group" aria-label="Data source" data-testid="mode-toggle">
-                <button type="button" aria-pressed={!real} data-testid="mode-mock" onClick={() => switchTo("mock")}>Mock</button>
-                <button type="button" aria-pressed={real} data-testid="mode-real" disabled={!info.realAvailable && !real}
-                  title={info.realAvailable ? "Read log lines from your loopback Loki (read-only)" : info.realHint || "Real is not configured. Mock keeps working."}
-                  onClick={() => switchTo("real")}>Real</button>
-              </div>
-            )}
-            {!presenter && (
-              <label className="inline">Vertical{" "}
-                <select value={vertical} onChange={(e) => setVertical(e.target.value)}>
-                  {(story ? story.verticals : ["retail"]).map((v) => <option key={v} value={v}>{v}</option>)}
-                </select>
-              </label>
-            )}
-            <button type="button" onClick={reset} data-testid="reset">Reset</button>
-            <button type="button" aria-pressed={presenter} onClick={() => setPresenter((v) => !v)} data-testid="presenter">{presenter ? "Exit presenter (Esc)" : "Presenter (P)"}</button>
+            <TopMenu
+              mode={{ value: info?.mode === "real" ? "real" : "mock", onChange: switchTo, realAvailable: info ? info.realAvailable : null, realHint: info?.realHint }}
+              vertical={{ value: vertical, onChange: setVertical, options: story ? story.verticals : ["retail"] }}
+              theme={{ value: theme, onChange: setTheme }}
+              fontSize={{ value: fontStep, onChange: setFontStep }}
+              present={{ active: presenter, onToggle: () => setPresenter((v) => !v) }}
+              talkTrack={{ active: tab === "talk", onToggle: () => select("talk") }}
+              help={{ href: "https://github.com/curtismu7/observability-LAB#readme" }}
+              version={info?.version || null}
+              onReset={reset}
+            >
+              <ShelfLink />
+            </TopMenu>
           </div>
         </div>
       </header>

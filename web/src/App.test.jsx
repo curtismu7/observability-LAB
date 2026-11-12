@@ -302,31 +302,30 @@ describe("shell and rule 19 toggle", () => {
   it("shows the banner first, the mode, and sends X-Workspace on API calls", async () => {
     await ready();
     expect(screen.getByTestId("banner")).toHaveTextContent(/^SIMULATED/);
-    expect(screen.getByTestId("mode")).toHaveTextContent("Mode: mock");
+    expect(screen.getByTestId("mode-select")).toHaveValue("mock");
     expect(calls.find((c) => c.url.startsWith("/api/logs")).opts.headers["x-workspace"]).toMatch(/^[a-z0-9-]{1,40}$/);
   });
-  it("the toggle reflects the mode (aria-pressed), switches both ways without a reload, and reloads the data", async () => {
+  it("the mode select reflects the mode, switches both ways without a reload, and reloads the data", async () => {
     await ready();
-    const mock = screen.getByTestId("mode-mock"); const real = screen.getByTestId("mode-real");
-    expect(mock).toHaveAttribute("aria-pressed", "true"); expect(real).toHaveAttribute("aria-pressed", "false");
+    const modeSelect = screen.getByTestId("mode-select");
+    expect(modeSelect).toHaveValue("mock");
     const before = calls.filter((c) => c.url.startsWith("/api/logs")).length;
-    await userEvent.click(real);
-    await waitFor(() => expect(screen.getByTestId("mode")).toHaveTextContent("Mode: real"));
+    await userEvent.selectOptions(modeSelect, "real");
+    await waitFor(() => expect(screen.getByTestId("mode-select")).toHaveValue("real"));
     expect(screen.getByTestId("banner")).toHaveTextContent(/^REAL/);
-    expect(screen.getByTestId("mode-real")).toHaveAttribute("aria-pressed", "true");
     await waitFor(() => expect(calls.filter((c) => c.url.startsWith("/api/logs")).length).toBeGreaterThan(before));
     await waitFor(() => expect(screen.getByTestId("count")).toHaveTextContent("REAL Loki"));
-    await userEvent.click(screen.getByTestId("mode-mock"));
-    await waitFor(() => expect(screen.getByTestId("mode")).toHaveTextContent("Mode: mock"));
+    await userEvent.selectOptions(screen.getByTestId("mode-select"), "mock");
+    await waitFor(() => expect(screen.getByTestId("mode-select")).toHaveValue("mock"));
     expect(screen.getByTestId("banner")).toHaveTextContent(/^SIMULATED/);
   });
   it("Real is disabled with the how-to reason when not configured", async () => {
     state.realAvailable = false;
     await ready();
-    const real = screen.getByTestId("mode-real");
+    const real = screen.getByTestId("mode-select").querySelector('option[value="real"]');
     expect(real).toBeDisabled();
     expect(real).toHaveAttribute("title", expect.stringContaining("OBS_LOKI_URL"));
-    expect(screen.getByTestId("mode-mock")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("mode-select")).toHaveValue("mock");
   });
   it("Reset calls /api/reset", async () => {
     await ready();
@@ -415,7 +414,7 @@ describe("label lab and alerts", () => {
     expect(await screen.findByTestId("alert-FailedLoginBurst")).toHaveAttribute("data-state", "ok");
     await userEvent.click(screen.getByTestId("sim-burst"));
     await waitFor(() => expect(screen.getByTestId("alert-FailedLoginBurst")).toHaveAttribute("data-state", "firing"));
-    await userEvent.click(screen.getByTestId("mode-real"));
+    await userEvent.selectOptions(screen.getByTestId("mode-select"), "real");
     await waitFor(() => expect(screen.getByTestId("sim-burst")).toBeDisabled());
   });
   it("the label lab says it is disabled in Real mode", async () => {
@@ -450,7 +449,7 @@ describe("talk track, presenter mode, banner", () => {
   it("presenter mode keeps the banner and shows the say-text; Esc leaves", async () => {
     await ready();
     await userEvent.click(screen.getByRole("tab", { name: "Talk track" }));
-    expect(screen.getByTestId("talk-track")).toHaveTextContent("Everything is simulated.");
+    expect(screen.getByTestId("talk-track-list")).toHaveTextContent("Everything is simulated.");
     await userEvent.click(screen.getByRole("tab", { name: "Logs" }));
     await userEvent.keyboard("p");
     expect(await screen.findByTestId("presenter-say")).toHaveTextContent("Everything is simulated.");

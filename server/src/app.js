@@ -69,6 +69,7 @@ export function createApp({
       siem: { service: SIEM_SERVICE, configured: siem !== null, problem: siemProblemFrom(env), index: siem?.index || env.PRIVILEGE_SIEM_INDEX || SIEM_DEFAULTS.index, esPortForward: esPortForwardFrom(env), kibana: kibanaFrom(env) },
       labLinks: labLinksFrom(env),
       searchDefaults: searchDefaultsFrom(env), // starting values for the Searches that ask you to type; ids, never keys
+      version: (() => { try { return JSON.parse(fs.readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version || null; } catch { return null; } })(),
     });
   });
   // Live starting values for the Searches that ask for a typed value (see startingValues.js). Cached for five minutes; never throws.
