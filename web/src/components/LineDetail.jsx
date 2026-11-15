@@ -44,7 +44,7 @@ export default function LineDetail({ entry, story, onTrace }) {
       <dt>Labels</dt>
       <dd>{labels.map(([k, v]) => <span key={k} className="tag tag--quiet">{visible(k)}={visible(String(v)).slice(0, 120)}</span>)}</dd>
       <dt>Message</dt>
-      <dd><pre className="json" tabIndex={0} aria-label="Whole log line">{visible(entry.message)}</pre></dd>
+      <dd><Json value={entry.message} label="Whole log line" /></dd>
       {parsed?.kind === "pairs" && (
         <>
           <dt>Fields</dt>

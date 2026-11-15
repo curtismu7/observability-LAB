@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { getJson, queryLogs, setRelabel } from "../api";
-import { visible } from "../safeText";
+import Json from "./Json";
 
 const BY_SERVICE = '{service=~"pingone-webhook|pingfederate|ping-gateway"}';
 const BY_RAW = '{service=~"/obs-demo-pingone-webhook|/obs-demo-pingfederate|/obs-demo-ping-gateway"}';
@@ -34,7 +34,7 @@ export default function LabelLab({ story, info, dataSignal, onChanged }) {
       <section className="panel" aria-labelledby="rule-h">
         <h2 id="rule-h">The collector's relabel rule</h2>
         <p>Docker reports a container as <code>/obs-demo-pingfederate</code>. The collector relabels that to <code>pingfederate</code>. Every dashboard query and alert uses the bare name.</p>
-        <pre className="json" tabIndex={0} aria-label="Relabel rule">{visible(story.relabelRule)}</pre>
+        <Json value={story.relabelRule} label="Relabel rule" />
         <button type="button" aria-pressed={enabled === true} onClick={toggle} disabled={enabled === null} data-testid="relabel-toggle">
           {enabled === false ? "Relabel rule: OFF (press to turn on)" : "Relabel rule: ON (press to turn off)"}
         </button>
