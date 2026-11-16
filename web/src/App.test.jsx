@@ -90,7 +90,7 @@ describe("Privilege SIEM: Kibana link and the look-back window", () => {
     override["/api/info"] = infoWith();
     const user = userEvent.setup();
     await ready();
-    await user.click(screen.getByRole("tab", { name: "Products" }));
+    await user.click(screen.getByRole("link", { name: "Products" }));
     const hosted = await screen.findByTestId("product-phosted");
     const link = within(hosted).getByRole("link", { name: "Open in Kibana (Privilege logs)" });
     expect(link).toHaveAttribute("href", SIEM.kibana.deepLink);
@@ -107,7 +107,7 @@ describe("Privilege SIEM: Kibana link and the look-back window", () => {
     override["/api/info"] = infoWith();
     const user = userEvent.setup();
     await ready();
-    await user.click(screen.getByRole("tab", { name: "Products" }));
+    await user.click(screen.getByRole("link", { name: "Products" }));
     const select = await screen.findByLabelText("Ping products");
     const groups = (label) => within(within(select).getByRole("group", { name: label })).getAllByRole("option").map((o) => o.textContent);
     expect(within(select).getAllByRole("option")[0]).toHaveTextContent("All products");
@@ -134,7 +134,7 @@ describe("Privilege SIEM: Kibana link and the look-back window", () => {
     override["/api/info"] = infoWith({ siem: { ...SIEM, configured: true, problem: null } });
     const user = userEvent.setup();
     await ready();
-    await user.click(screen.getByRole("tab", { name: "Products" }));
+    await user.click(screen.getByRole("link", { name: "Products" }));
     expect(await screen.findByTestId("siem-setup")).toHaveTextContent('Real reads ping-siem-events-v2 read-only. Ask for {service="privilege-siem"}.');
   });
 
@@ -182,7 +182,7 @@ describe("Privilege logs in Kibana: queries to copy", () => {
     override["/api/info"] = () => ({ ok: true, status: 200, json: async () => ({ mode: "mock", source: "mock", simulated: true, realAvailable: true, realHint: null, siem: { service: "privilege-siem", configured: false, problem: "x", index: "i", esPortForward: "p", kibana } }) });
     const user = userEvent.setup();
     await ready();
-    await user.click(screen.getByRole("tab", { name: "Products" }));
+    await user.click(screen.getByRole("link", { name: "Products" }));
     return { user, panel: await screen.findByTestId("kibana-panel") };
   };
 
@@ -255,7 +255,7 @@ describe("Privilege logs in Kibana: queries to copy", () => {
     override["/api/info"] = () => ({ ok: true, status: 200, json: async () => ({ mode: "mock", source: "mock", simulated: true, realAvailable: true, realHint: null }) });
     const user = userEvent.setup();
     await ready();
-    await user.click(screen.getByRole("tab", { name: "Products" }));
+    await user.click(screen.getByRole("link", { name: "Products" }));
     await screen.findByTestId("product-pingfederate");
     expect(screen.queryByTestId("kibana-panel")).toBeNull();
   });
@@ -398,19 +398,19 @@ describe("logs tab", () => {
 describe("label lab and alerts", () => {
   it("turning the relabel rule off flips the counts and the silence rule fires; Reset restores", async () => {
     await ready();
-    await userEvent.click(screen.getByRole("tab", { name: "Label lab" }));
+    await userEvent.click(screen.getByRole("link", { name: "Label lab" }));
     await waitFor(() => expect(screen.getByTestId("count-service")).toHaveTextContent("2"));
     await userEvent.click(screen.getByTestId("relabel-toggle"));
     await waitFor(() => expect(screen.getByTestId("relabel-msg")).toHaveTextContent("returns nothing"));
     await waitFor(() => expect(screen.getByTestId("count-service")).toHaveTextContent("0"));
-    await userEvent.click(screen.getByRole("tab", { name: "Alerts" }));
+    await userEvent.click(screen.getByRole("link", { name: "Alerts" }));
     expect(await screen.findByTestId("alert-ProductLogSilence")).toHaveAttribute("data-state", "firing");
     await userEvent.click(screen.getByTestId("reset"));
     await waitFor(() => expect(screen.getByTestId("alert-ProductLogSilence")).toHaveAttribute("data-state", "ok"));
   });
   it("Simulate burst makes the rule fire; in Real mode the buttons are disabled", async () => {
     await ready();
-    await userEvent.click(screen.getByRole("tab", { name: "Alerts" }));
+    await userEvent.click(screen.getByRole("link", { name: "Alerts" }));
     expect(await screen.findByTestId("alert-FailedLoginBurst")).toHaveAttribute("data-state", "ok");
     await userEvent.click(screen.getByTestId("sim-burst"));
     await waitFor(() => expect(screen.getByTestId("alert-FailedLoginBurst")).toHaveAttribute("data-state", "firing"));
@@ -420,7 +420,7 @@ describe("label lab and alerts", () => {
   it("the label lab says it is disabled in Real mode", async () => {
     state.mode = "real";
     await ready();
-    await userEvent.click(screen.getByRole("tab", { name: "Label lab" }));
+    await userEvent.click(screen.getByRole("link", { name: "Label lab" }));
     expect(screen.getByTestId("label-real")).toHaveTextContent("disabled in Real mode");
   });
 });
@@ -428,13 +428,13 @@ describe("label lab and alerts", () => {
 describe("products and pipeline", () => {
   it("every claim carries a status tag", async () => {
     await ready();
-    await userEvent.click(screen.getByRole("tab", { name: "Products" }));
+    await userEvent.click(screen.getByRole("link", { name: "Products" }));
     expect(screen.getByTestId("product-pingfederate")).toHaveTextContent("UNVERIFIED");
     expect(screen.getByTestId("facts")).toHaveTextContent("measured");
   });
   it("draws the boxes from /api/diagram and Simulate highlights a step; Reset clears it", async () => {
     await ready();
-    await userEvent.click(screen.getByRole("tab", { name: "Pipeline" }));
+    await userEvent.click(screen.getByRole("link", { name: "Pipeline" }));
     expect(await screen.findByText("Collector: discover + relabel to service")).toBeInTheDocument();
     expect(screen.getByText("Measured live 2026-11-08")).toHaveClass("pat-node__sub");
     expect(calls.some((c) => c.url.startsWith("/api/diagram?vertical=retail&name=log-pipeline"))).toBe(true);
@@ -448,9 +448,9 @@ describe("products and pipeline", () => {
 describe("talk track, presenter mode, banner", () => {
   it("presenter mode keeps the banner and shows the say-text; Esc leaves", async () => {
     await ready();
-    await userEvent.click(screen.getByRole("tab", { name: "Talk track" }));
+    await userEvent.click(screen.getByRole("link", { name: "Talk track" }));
     expect(screen.getByTestId("talk-track-list")).toHaveTextContent("Everything is simulated.");
-    await userEvent.click(screen.getByRole("tab", { name: "Logs" }));
+    await userEvent.click(screen.getByRole("link", { name: "Logs" }));
     await userEvent.keyboard("p");
     expect(await screen.findByTestId("presenter-say")).toHaveTextContent("Everything is simulated.");
     expect(screen.getByTestId("banner")).toBeVisible();
@@ -458,10 +458,24 @@ describe("talk track, presenter mode, banner", () => {
     await userEvent.keyboard("{Escape}");
     expect(document.querySelector(".app--presenter")).toBeNull();
   });
+  it("shell bar first (brand, Mock badge, current pill, TopMenu), then main with the banner as its first child", async () => {
+    await ready();
+    const bar = document.querySelector("header.shell-bar");
+    expect(document.querySelector(".app").firstElementChild).toBe(bar);
+    expect(within(bar).getByRole("heading", { level: 1 })).toHaveTextContent("Observability Lab");
+    expect(within(bar).getByTestId("mode-badge")).toHaveTextContent("Mock");
+    expect(bar.querySelector(".shell-right")).toBe(screen.getByTestId("top-menu"));
+    expect(within(bar).getByRole("link", { name: "Logs" })).toHaveAttribute("aria-current", "page");
+    await userEvent.click(screen.getByRole("link", { name: "Alerts" }));
+    expect(screen.getByRole("link", { name: "Alerts" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Logs" })).not.toHaveAttribute("aria-current");
+    expect(bar.nextElementSibling.tagName).toBe("MAIN");
+    expect(document.querySelector("main").firstElementChild).toBe(screen.getByTestId("banner"));
+  });
   it("the banner is visible on every tab", async () => {
     await ready();
     for (const name of ["Products", "Pipeline", "Label lab", "Alerts", "Talk track"]) {
-      await userEvent.click(screen.getByRole("tab", { name }));
+      await userEvent.click(screen.getByRole("link", { name }));
       expect(screen.getByTestId("banner")).toBeVisible();
     }
   });
@@ -497,7 +511,7 @@ describe("Searches tab", () => {
     override["/api/info"] = () => ({ ok: true, status: 200, json: async () => ({ searchDefaults, mode, source: mode, simulated: mode === "mock", realAvailable: true, realHint: null, siem: { service: "privilege-siem", configured: true, problem: null, index: "i", esPortForward: "p", kibana: KIB }, labLinks: LABS }) });
     const user = userEvent.setup();
     await ready();
-    await user.click(screen.getByRole("tab", { name: "Searches" }));
+    await user.click(screen.getByRole("link", { name: "Searches" }));
     return { user, tab: await screen.findByTestId("searches") };
   };
 
@@ -575,7 +589,7 @@ describe("Searches tab", () => {
 
   it("Searches is the second tab and is marked as the featured one", async () => {
     await open();
-    const tabs = screen.getAllByRole("tab");
+    const tabs = within(screen.getByRole("navigation", { name: "Lab sections" })).getAllByRole("link");
     expect(tabs.slice(0, 3).map((t) => t.textContent)).toEqual(["Logs", "Searches", "Products"]);
     expect(tabs[1]).toHaveClass("tab-featured");
     expect(tabs.filter((t) => t.classList.contains("tab-featured"))).toHaveLength(1);

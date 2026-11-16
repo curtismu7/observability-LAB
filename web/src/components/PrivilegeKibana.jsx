@@ -53,6 +53,7 @@ export default function PrivilegeKibana({ kibana }) {
       <h2 id="kibana-h">Privilege logs in Kibana</h2>
       <p className="muted">
         The same Privilege events as the SIEM source, with a dashboard. Kibana needs this tunnel: <code>{kibana.portForward}</code>{" "}
+        {/* ui-pattern: allow P9 this view's only button is a Copy utility for the tunnel command; its actions are the Kibana links, so no button is the primary action */}
         <CopyButton text={kibana.portForward} label="the port-forward command" />
         {kibana.settingValid === false && <> PRIVILEGE_KIBANA_URL is not usable, so the default origin is shown.</>}
       </p>

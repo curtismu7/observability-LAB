@@ -100,7 +100,7 @@ export default function LogStream({ story, info, dataSignal, requestedId, onSele
         <form onSubmit={submit} className="qform">
           <label htmlFor="q" className="sr-only">LogQL-lite query</label>
           <input id="q" className="qinput" type="text" value={draft} onChange={(e) => setDraft(e.target.value)} spellCheck={false} autoComplete="off" maxLength={500} data-testid="query" />
-          <button type="submit" data-testid="run">{busy ? "Running..." : "Run"}</button>
+          <button type="submit" className="primary" data-testid="run">{busy ? "Running..." : "Run"}</button>
         </form>
         {real && askingSiem(query) && (
           <p className="muted">
