@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getJson, simulate } from "../api";
 import { visible } from "../safeText";
+import Json from "./Json";
 
 export default function Alerts({ info, dataSignal, onChanged }) {
   const [data, setData] = useState(null);
@@ -37,8 +38,8 @@ export default function Alerts({ info, dataSignal, onChanged }) {
             <p>{visible(r.summary)}</p>
             <p className="muted">{r.lesson}</p>
             <details><summary>Query and evidence</summary>
-              <pre className="json" tabIndex={0} aria-label={`Query of ${r.title}`}>{visible(r.query)}</pre>
-              <pre className="json" tabIndex={0} aria-label={`Evidence of ${r.title}`}>{visible(JSON.stringify(r.evidence, null, 2))}</pre>
+              <Json value={r.query} label={`Query of ${r.title}`} />
+              <Json value={r.evidence} label={`Evidence of ${r.title}`} />
             </details>
           </section>
         ))}

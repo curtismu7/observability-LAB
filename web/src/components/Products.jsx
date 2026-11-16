@@ -1,6 +1,7 @@
 import { useState } from "react";
 import PrivilegeKibana from "./PrivilegeKibana";
 import { visible } from "../safeText";
+import Json from "./Json";
 import { PING_PRODUCTS } from "../products";
 
 const STATUS_CLASS = { measured: "tag tag--ok", inferred: "tag", UNVERIFIED: "tag tag--warn" };
@@ -81,7 +82,7 @@ export default function Products({ story, info }) {
               <div key={s.id} className="source">
                 <h3>{s.title} <span className={STATUS_CLASS[s.status] || "tag"}>{s.status}</span></h3>
                 <p className="muted">{s.where}</p>
-                <pre className="json" tabIndex={0} aria-label={`Sample ${s.title}`}>{visible(s.sample)}</pre>
+                <Json value={s.sample} label={`Sample ${s.title}`} />
                 <p className="muted">{s.note}</p>
               </div>
             ))}
