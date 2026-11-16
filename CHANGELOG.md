@@ -2,6 +2,7 @@
 
 ## 0.1.0 (unreleased)
 
+- Added: the header shows this lab's Verified / In progress mark from the demo shelf, in the top menu beside the Shelf link (the shared `VerifyMark`, vendored byte for byte from AI-DEMO-Standalone `shared/verify-mark` and pinned). It reads the same `GET /api/shelf` call the Shelf link makes, so it shows through the lab-proxy and nothing when the lab is opened on its own port, when the shelf has no mark for it, or when the shelf is unreachable.
 - Changed: the Products tab has the same "Ping products" dropdown as the Logs tab. It shows one product's card (or All products), with Ping products (PingOne, PingFederate, Ping Gateway and the Privilege family) apart from other services; both tabs share one list of the Ping product ids.
 - Changed: on the Logs tab the product filter is now a "Ping products" dropdown, like the shelf's. It lists the products in the current result with their line counts, Ping products (PingOne, PingFederate, Ping Gateway and the Privilege family) apart from other services (the AI-DEMO2 banking MCP server, LLM proxy and so on), and uses the lab's own product names, so the Privilege sources no longer show as raw ids such as `pgateway`.
 - Fixed: `docker compose up` always started in Mock because the image sets `MODE=mock`. Compose now passes `MODE: ${OBS_MODE:-}`, so with `OBS_MODE` unset the lab starts in Real when Real is configured and in Mock otherwise.
