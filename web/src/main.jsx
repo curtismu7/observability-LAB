@@ -5,6 +5,7 @@ import "./standalone-ui.css";
 import "./components/JsonPane.css";
 import "./tokens.css";
 import "./top-menu/top-menu.css";
+import "./components/VerifyMark.css";
 import "./components/JsonPane.css";
 import "./app.css";
 

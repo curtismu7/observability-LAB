@@ -6,6 +6,7 @@ import Alerts from "./components/Alerts";
 import DiagramTab from "./components/DiagramTab";
 import TalkTrack from "./components/TalkTrack";
 import ShelfLink from "./components/ShelfLink";
+import VerifyMark from "./components/VerifyMark.jsx";
 import TopMenu, { applyFontSize } from "./top-menu/TopMenu";
 import Searches from "./components/Searches";
 import { getJson, resetWorkspace, setMode } from "./api";
@@ -131,6 +132,7 @@ export default function App() {
               onReset={reset}
             >
               <ShelfLink />
+              <VerifyMark id="observability-lab" />
             </TopMenu>
           </div>
         </div>
