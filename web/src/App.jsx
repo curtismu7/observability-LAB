@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import LogStream from "./components/LogStream";
 import Products from "./components/Products";
 import LabelLab from "./components/LabelLab";
@@ -44,7 +44,6 @@ export default function App() {
   const [resetMsg, setResetMsg] = useState("");
   const [theme, setTheme] = useState(savedTheme);
   const [fontStep, setFontStep] = useState(() => { try { const f = window.localStorage.getItem("obslab.font"); return ["S", "M", "L"].includes(f) ? f : "M"; } catch { return "M"; } });
-  const tabsRef = useRef(null);
   const bump = useCallback(() => setDataSignal((n) => n + 1), []);
 
   const loadInfo = useCallback(() => getJson("/api/info").then(setInfo, () => setInfo(null)), []);
@@ -66,14 +65,6 @@ export default function App() {
   }, []);
   const select = (id) => { setTab(id); setRequested(null); try { window.history.replaceState(null, "", `#${id}`); } catch { /* ignore */ } };
   const pickScenario = useCallback((sid) => { try { window.history.replaceState(null, "", `#scenario-${sid}`); } catch { /* ignore */ } }, []);
-
-  // Keep the active tab fully in view in the scrolling tab strip (375px).
-  useEffect(() => {
-    const strip = tabsRef.current; const el = document.getElementById(`tab-${tab}`);
-    if (!strip || !el) return;
-    const left = el.offsetLeft - strip.offsetLeft;
-    if (left < strip.scrollLeft || left + el.offsetWidth > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = Math.max(0, left - 8);
-  }, [tab]);
 
   useEffect(() => {
     const on = (e) => {
@@ -101,53 +92,47 @@ export default function App() {
     setResetMsg(`Switched to ${source === "real" ? "Real" : "Mock"}: all data reloaded.`);
   };
 
-  const onKeyTab = (e, i) => {
-    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
-    const next = TABS[(i + (e.key === "ArrowRight" ? 1 : TABS.length - 1)) % TABS.length];
-    select(next.id);
-    document.getElementById(`tab-${next.id}`)?.focus();
-  };
-
   const real = info?.mode === "real";
   const banner = story ? (real ? story.realBanner : story.banner) : BANNER_UNKNOWN;
   return (
     <div className={`app${presenter ? " app--presenter" : ""}`}>
-      <header>
-        <p className="banner" role="note" data-testid="banner">{banner}</p>
-        <div className="head">
-          <div>
-            <h1>Observability Lab</h1>
-            {!presenter && story && <p className="intro">{story.intro}</p>}
-          </div>
-          <div className="head__tools">
-            <TopMenu
-              mode={{ value: info?.mode === "real" ? "real" : "mock", onChange: switchTo, realAvailable: info ? info.realAvailable : null, realHint: info?.realHint }}
-              vertical={{ value: vertical, onChange: setVertical, options: story ? story.verticals : ["retail"] }}
-              theme={{ value: theme, onChange: setTheme }}
-              fontSize={{ value: fontStep, onChange: setFontStep }}
-              present={{ active: presenter, onToggle: () => setPresenter((v) => !v) }}
-              talkTrack={{ active: tab === "talk", onToggle: () => select("talk") }}
-              help={{ href: "https://github.com/curtismu7/observability-LAB#readme" }}
-              version={info?.version || null}
-              onReset={reset}
-            >
-              <ShelfLink />
-              <VerifyMark id="observability-lab" />
-            </TopMenu>
-          </div>
-        </div>
-      </header>
-      <main>
-        <p className="sr-only" role="status" aria-live="polite" data-testid="status">{resetMsg}</p>
-        <div role="tablist" aria-label="Lab sections" className="tabs" ref={tabsRef}>
-          {TABS.map((t, i) => (
-            <button key={t.id} id={`tab-${t.id}`} role="tab" type="button" className={t.featured ? "tab-featured" : undefined} aria-selected={tab === t.id} aria-controls={`panel-${t.id}`} tabIndex={tab === t.id ? 0 : -1}
-              onClick={() => select(t.id)} onKeyDown={(e) => onKeyTab(e, i)}>{t.label}</button>
+      <header className="shell-bar">
+        <span className="shell-brand">
+          <span className="shell-logo" aria-hidden="true">OBS</span>
+          <h1>Observability Lab</h1>
+          {real
+            ? <span className="shell-badge shell-badge--real" data-testid="mode-badge">Real</span>
+            : <span className="shell-badge" data-testid="mode-badge">Mock</span>}
+        </span>
+        <nav className="shell-nav" aria-label="Lab sections">
+          {TABS.map((t) => (
+            <a key={t.id} href={`#${t.id}`} className={t.featured ? "tab-featured" : undefined} aria-current={tab === t.id ? "page" : undefined}
+              onClick={(e) => { e.preventDefault(); select(t.id); }}>{t.label}</a>
           ))}
-        </div>
+        </nav>
+        <TopMenu
+          mode={{ value: info?.mode === "real" ? "real" : "mock", onChange: switchTo, realAvailable: info ? info.realAvailable : null, realHint: info?.realHint }}
+          vertical={{ value: vertical, onChange: setVertical, options: story ? story.verticals : ["retail"] }}
+          theme={{ value: theme, onChange: setTheme }}
+          fontSize={{ value: fontStep, onChange: setFontStep }}
+          present={{ active: presenter, onToggle: () => setPresenter((v) => !v) }}
+          talkTrack={{ active: tab === "talk", onToggle: () => select("talk") }}
+          help={{ href: "https://github.com/curtismu7/observability-LAB#readme" }}
+          version={info?.version || null}
+          onReset={reset}
+        >
+          <ShelfLink />
+          <VerifyMark id="observability-lab" />
+        </TopMenu>
+      </header>
+      <main className="page">
+        <p className="banner" role="note" data-testid="banner">{banner}</p>
+        {error && <p className="app-error" role="alert">Could not load the lab ({error}). Is the server running?</p>}
+        <p className="sr-only" role="status" aria-live="polite" data-testid="status">{resetMsg}</p>
+        {!presenter && story && <div className="page-head"><p className="intro">{story.intro}</p></div>}
         {resetMsg && !presenter && <p className="muted" data-testid="notice">{resetMsg}</p>}
-        <div id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`}>
-          {error ? <p className="app-error" role="alert">Could not load the lab ({error}). Is the server running?</p> : !story ? <p className="muted">Loading...</p> : (
+        <div id={`panel-${tab}`}>
+          {error ? null : !story ? <p className="muted">Loading...</p> : (
             <>
               {presenter && tab !== "talk" && (
                 <aside className="presenter-say" data-testid="presenter-say" aria-label="Talk track">

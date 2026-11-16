@@ -26,7 +26,7 @@ export default function Alerts({ info, dataSignal, onChanged }) {
         <div className="seg">
           <button type="button" disabled={real} title={real ? "Changes the mock stream. Switch to Mock." : "Eight failed sign-ins in two minutes"} onClick={() => go("login-burst", "A burst of failed sign-ins")} data-testid="sim-burst">Simulate sign-in burst</button>
           <button type="button" disabled={real} title={real ? "Changes the mock stream. Switch to Mock." : "Fourteen 5xx responses in two minutes"} onClick={() => go("gateway-5xx", "A gateway failure")} data-testid="sim-gateway">Simulate gateway failure</button>
-          <button type="button" onClick={load}>Re-evaluate</button>
+          <button type="button" className="primary" onClick={load}>Re-evaluate</button>
         </div>
         <p className="muted" role="status">{msg}</p>
       </section>

@@ -41,6 +41,7 @@ function Search({ search, origin, start }) {
         <p className="muted" id={`err-${search.id}`} data-testid="search-problem">{problem}</p>
       ) : (
         <p>
+          {/* ui-pattern: allow P9 the buttons here are per-query Copy utilities and Clear filters; the actions are the Run in Discover links, so no button is the primary action */}
           <CopyButton text={kql} label={`the query ${search.title}`} />{" "}
           <a href={searchRunUrl(origin, search, value)} aria-label={`Run ${search.title} in Discover`} {...external}>Run in Discover</a>
         </p>
