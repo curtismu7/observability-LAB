@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+- Diagram: arrow labels are drawn in a layer above the boxes and placed so none overlaps another label or sits on a box (the walked arrow's label turns bold and coloured and is raised); click a box and it expands in place with its details below its title: its kind, reach (boxes upstream and downstream), and the arrows in and out (each opens that box), on a card with colour that means something (blue where it is, green what it sends to, amber what reaches it). Click again, Close, the empty canvas or Reset collapses it; Copy link and `?box=<id>` open the page with a box expanded. The shared `diagram-kit` (vendored into `web/src/diagram-kit/`, pinned) does the work.
+
 ## 0.1.0 (unreleased)
 
 - Added: the header shows this lab's Verified / In progress mark from the demo shelf, in the top menu beside the Shelf link (the shared `VerifyMark`, vendored byte for byte from AI-DEMO-Standalone `shared/verify-mark` and pinned). It reads the same `GET /api/shelf` call the Shelf link makes, so it shows through the lab-proxy and nothing when the lab is opened on its own port, when the shelf has no mark for it, or when the shelf is unreachable.
