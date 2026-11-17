@@ -39,7 +39,7 @@ test('kibana-demo-logs-view.py saves one data view over demo-logs-* with the tim
     const s = k.seen[0];
     assert.equal(s.method, 'POST'); assert.equal(s.url, '/api/saved_objects/index-pattern/demo-logs?overwrite=true');
     assert.equal(s.auth, `Basic ${Buffer.from('elastic:s3cret"pw').toString('base64')}`); assert.equal(s.xsrf, '1');
-    assert.deepEqual(JSON.parse(s.body).attributes, { title: 'demo-logs-*', name: 'Demo logs (AI-DEMO2 and lab containers)', timeFieldName: '@timestamp' });
+    assert.deepEqual(JSON.parse(s.body).attributes, { title: 'demo-logs-*', name: 'Demo logs (family demo and lab containers)', timeFieldName: '@timestamp' });
     assert.match(r.stdout, /dataViewId:'demo-logs'/);
     assert.ok(!r.stdout.includes('s3cret') && !r.stderr.includes('s3cret'));
   } finally { await k.close(); fs.rmSync(bin, { recursive: true, force: true }); }

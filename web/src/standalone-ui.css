@@ -299,7 +299,7 @@ button[aria-pressed="true"] {
 .shell-theme select { min-height: 32px; padding: 4px 8px; }
 
 /* ===== Evidence lanes (owner-approved 2026-11-08; mock: customer-agent-LAB sequence and movie reel pages) =====
-   One colour per actor lane in the sequence view and movie reel, from AI-DEMO2's SequenceReelDiagram hue
+   One colour per actor lane in the sequence view and movie reel, from the shared diagram kit's lane hues
    families (browser blue, agent orange, tool/gateway green, identity amber, back-end pink; no purple).
    Used on borders, strokes and tile rings only, never as text colour. Apps use var(--lane-*) and add no literals. */
 :root {

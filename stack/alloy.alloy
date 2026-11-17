@@ -1,15 +1,15 @@
-// The lab's own collector. It reads the stdout of ten containers, matched by exact name: the lab-proxy (one access line per
+// The lab's own collector. It reads the stdout of a set of containers, matched by exact name: the lab-proxy (one access line per
 // request to every lab behind it, which the browser driver exercises), the two Privilege sources that print to stdout (the node
-// sensor and the MCP gateway), and six AI-DEMO2 services whose lines the lab models: PingFederate, the Ping Gateway, the LLM
-// proxy, the authz server, the banking MCP server and the weather MCP server (measured 2026-11-08: none printed a token or secret). `service` comes from the container name with a leading ai-demo- removed, the same rule
-// AI-DEMO2's collector uses. The agent gateway (ping-mcpgw) writes a FILE instead; see the last section. Every line the proxy prints is shipped, not only the driver's; the driver's requests carry
+// sensor and the MCP gateway), and a set of family demo services whose lines the lab models: PingFederate, the Ping Gateway, the LLM
+// proxy, the authz server, the banking MCP server and the weather MCP server (measured 2026-11-08: none printed a token or secret). `service` comes from the container name with a leading stack prefix removed, the same rule
+// a production-style collector uses. The agent gateway (ping-mcpgw) writes a FILE instead; see the last section. Every line the proxy prints is shipped, not only the driver's; the driver's requests carry
 // a HeadlessChrome user agent. `origin` says which stack collected the line.
-// The Docker socket is mounted read-only in compose.yml, as in AI-DEMO2: it only lists containers and reads their logs.
+// The Docker socket is mounted read-only in compose.yml: it only lists containers and reads their logs.
 discovery.docker "labs" {
   host = "unix:///var/run/docker.sock"
   filter {
     name   = "name"
-    values = ["^/?lab-proxy-lab-proxy-1$", "^/?procyon-nodesensor$", "^/?ai-demo-mcp-gateway$", "^/?ai-demo-pingfederate$", "^/?ai-demo-ping-gateway$", "^/?ai-demo-llm-proxy$", "^/?ai-demo-authz-server$", "^/?ai-demo-mcp-server$", "^/?ai-demo-mcp-weather$", "^/?ai-demo-hitl-service$"]
+    values = ["^/?lab-proxy-lab-proxy-1$", "^/?procyon-nodesensor$", "^/?ping-shared-mcp-gateway$", "^/?ping-shared-pingfederate$", "^/?ping-shared-ping-gateway$", "^/?demo-llm-proxy$", "^/?demo-authz-server$", "^/?demo-mcp-server$", "^/?demo-mcp-weather$", "^/?demo-hitl-service$"]
   }
 }
 
@@ -17,7 +17,7 @@ discovery.relabel "svc" {
   targets = discovery.docker.labs.targets
   rule {
     source_labels = ["__meta_docker_container_name"]
-    regex         = "/(?:ai-demo-)?(.*)"
+    regex         = "/(?:demo-|ping-shared-)?(.*)"
     target_label  = "service"
   }
   rule {
@@ -57,7 +57,7 @@ loki.process "recent" {
 
 // The Privilege agent gateway (ping-mcpgw) logs to a file, /var/log/procyon/cyonproxy.log, and prints nothing on stdout,
 // so a collector that reads container stdout never sees it (measured 2026-11-07). docker-compose.privilege.yml mounts
-// AI-DEMO2's log volume read-only at /privilege-logs; without it this block finds no file and ships nothing.
+// The gateway's log volume read-only at /privilege-logs; without it this block finds no file and ships nothing.
 // tail_from_end: only lines written from now on (the file holds days of history). Only the four message families the
 // lab models are kept (the three rejection and stream lines, plus the [SERVER] request lines that carry User-Agent and Remote Addr); the file's other lines (tenant and node ids, peer certificates) are dropped before Loki.
 local.file_match "privilege" {

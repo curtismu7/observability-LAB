@@ -10,7 +10,7 @@
       "composeFile": "observability-lab/docker-compose.yml",
       "composeOverlays": [],
       "pingProducts": [],
-      "notes": "Host-run: ./scripts/run.sh (port 7800). Mock needs no tenant and no credentials. Docker: HOST_PORT=7800 docker compose up --build -d (published on 127.0.0.1 only). Real: set OBS_LOKI_URL to a loopback Loki (for example the AI-DEMO2 observability profile on http://127.0.0.1:3100). Derived from the AI-DEMO2 monitoring stack (Alloy, Loki, Grafana); line shapes are illustrative and labelled UNVERIFIED. Catalog id D123.",
+      "notes": "Host-run: ./scripts/run.sh (port 7800). Mock needs no tenant and no credentials. Docker: HOST_PORT=7800 docker compose up --build -d (published on 127.0.0.1 only). Real: set OBS_LOKI_URL to a loopback Loki (for example this lab's own `stack` profile on http://127.0.0.1:3100). A small standalone monitoring stack (Alloy, Loki); line shapes are illustrative and labelled UNVERIFIED. Catalog id D123.",
       "repo": "https://github.com/curtismu7/observability-LAB",
       "catalogId": "D123",
       "alsoCatalogIds": [],

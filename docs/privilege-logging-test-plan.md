@@ -6,7 +6,7 @@ Written for: the owner and SEs deciding what to test and in what order.
 
 ## 1. Goal
 
-For every Privilege use case, app and page in AI-DEMO2: say which log line it produces, which source carries it, and whether this lab can see it. Each answer ends as measured, doc-sourced or UNVERIFIED, never a guess presented as fact.
+For every Privilege use case, app and page: say which log line it produces, which source carries it, and whether this lab can see it. Each answer ends as measured, doc-sourced or UNVERIFIED, never a guess presented as fact.
 
 Done means:
 
@@ -22,7 +22,7 @@ Done means:
 - **17 cases measured on 2026-11-07** against one gateway build, across five sinks (hosted gateway pod log, response header, console, Elasticsearch `ping-siem-events`, OpenSearch `gateway-events`). Groups: MCP (5), AI Guard (2), Rejected (3), Aggregate (2), A2A (1), LLM (3), Intent (1).
 - **17 more cases are defined but not measured** (`realOnly`): Keys (revoked, expired, 429, no mcp scope), Federated identity (valid, wrong audience, wrong issuer, expired, lifetime too long), Approvals (held, approved, denied, Cedar decision), Registry lifecycle (created, rotated, revoked, expired).
 - **A correlation method**: a unique marker (`audit-<8 hex>`) planted in the request, found in the log first, with a time-window fallback.
-- **Its headline findings** (its own words, one build): the pod log is the only sink with per-call lines; no allowed call has an explicit allow line; rejected calls name no user, agent or tool; the aggregate, A2A and LLM routes log little or nothing; the SIEM index held console changes only. (Its claim that the OpenSearch shipper had not delivered since 2026-10-26 is WRONG: that capture read the cmuir namespace's copy, which is not the one the shipper writes to. Measured 2026-11-08 AI-DEMO2 read-only: the curtismuir `gateway-events` index held 1,993 documents, 2026-09-06 to 2026-11-08, still current; the cmuir copy held 935, nothing newer than 2026-10-26.)
+- **Its headline findings** (its own words, one build): the pod log is the only sink with per-call lines; no allowed call has an explicit allow line; rejected calls name no user, agent or tool; the aggregate, A2A and LLM routes log little or nothing; the SIEM index held console changes only. (Its claim that the OpenSearch shipper had not delivered since 2026-10-26 is WRONG: that capture read the cmuir namespace's copy, which is not the one the shipper writes to. Measured 2026-11-08 the demo stack read-only: the curtismuir `gateway-events` index held 1,993 documents, 2026-09-06 to 2026-11-08, still current; the cmuir copy held 935, nothing newer than 2026-10-26.)
 
 This plan therefore **reuses its case ids and marker method** and adds what it does not cover: the sources this lab ships to Loki (sensor, MCP gateway, agent gateway), every page and app, and the cases that are in neither lab.
 
@@ -31,11 +31,11 @@ This plan therefore **reuses its case ids and marker method** and adds what it d
 | # | Source | How the lab gets it | State |
 |---|---|---|---|
 | 1 | Privilege node sensor (`procyon-nodesensor`) | Alloy, container stdout | In the lab. Phase 0: **measured**, 1000+ lines in Loki in the last 3 h (the query cap) |
-| 2 | MCP gateway (`ai-demo-mcp-gateway`) | Alloy, container stdout | In the lab. Phase 0: **measured**, 77 lines, newest 22:05Z, so quiet when idle |
-| 3 | Agent gateway (`ai-demo-ping-mcpgw`, mcpgw binary) | Alloy reads its FILE log from the `ai-demo_mcpgw-logs` volume | In the lab through `docker-compose.privilege.yml`. Phase 0: **measured with the real gateway**: it was started at about 21:55Z and Loki held 934 lines at 22:51Z, split 467 `Invalid Authorization token` and 467 `authorization header missing`. Before this the path was proven only on a throwaway volume |
-| 4 | Model-call gateway JSON (`LLM request`, `AIGuard`, A2A) | Not local. Hosted gateway pod log | **Not in the lab.** The 2026-11-07 capture found no LLM request line in the hosted pod log, and it read an OpenSearch copy with nothing since 2026-10-26: the wrong one (the cmuir namespace's). The shipper writes to the curtismuir OpenSearch, whose `gateway-events` was current on 2026-11-08 (1,993 documents, measured AI-DEMO2 read-only). So the doc (`GATEWAY-LOGGING-WITH-ELASTICSEARCH.md`) holds; the lab's `pevents` source shows those events |
+| 2 | MCP gateway (`ping-shared-mcp-gateway` or the local stack's name) | Alloy, container stdout | In the lab. Phase 0: **measured**, 77 lines, newest 22:05Z, so quiet when idle |
+| 3 | Agent gateway (`ping-mcpgw`, mcpgw binary) | Alloy reads its FILE log from the gateway's log volume (name it with PRIVILEGE_LOG_VOLUME) | In the lab through `docker-compose.privilege.yml`. Phase 0: **measured with the real gateway**: it was started at about 21:55Z and Loki held 934 lines at 22:51Z, split 467 `Invalid Authorization token` and 467 `authorization header missing`. Before this the path was proven only on a throwaway volume |
+| 4 | Model-call gateway JSON (`LLM request`, `AIGuard`, A2A) | Not local. Hosted gateway pod log | **Not in the lab.** The 2026-11-07 capture found no LLM request line in the hosted pod log, and it read an OpenSearch copy with nothing since 2026-10-26: the wrong one (the cmuir namespace's). The shipper writes to the curtismuir OpenSearch, whose `gateway-events` was current on 2026-11-08 (1,993 documents, measured the demo stack read-only). So the doc (`GATEWAY-LOGGING-WITH-ELASTICSEARCH.md`) holds; the lab's `pevents` source shows those events |
 | 5 | Console audit events to SIEM (Elasticsearch / OpenSearch) | Not in the lab | The capture found console changes only in `ping-siem-events` |
-| 6 | AI-DEMO2 BFF and app logs | Not in the lab | Not examined |
+| 6 | the demo stack BFF and app logs | Not in the lab | Not examined |
 | 7 | Lab-proxy access lines | Alloy, container stdout | In the lab. nginx shape, not Privilege shape. Its Loki service label is `lab-proxy-lab-proxy-1`; 0 lines in the last 3 h at preflight (nothing had driven the labs) |
 
 Phase 0 also left one open question: source 3 showed two rejection messages at equal counts (467 each). Phase 2 resolved part of it, see section 8a: the two lines are written together by **one** request (83 microseconds apart in the file), so they are not two kinds of request. The sender is still unidentified.
@@ -131,7 +131,7 @@ privilege-demo, privilege-map, privilege-logging, privilege-a2a-anthropic-demo, 
 
 ## 8a. Phase 2 findings so far (measured on the real local gateway, 2026-11-08 00:3xZ, evening of 2026-11-07 local)
 
-Image digest as pinned in AI-DEMO2 `docker-compose.yml` (profile `mcpgw`). One request per row unless noted; the lines below were read from `/var/log/procyon/cyonproxy.log` inside the container.
+Image digest as pinned in the demo stack `docker-compose.yml` (profile `mcpgw`). One request per row unless noted; the lines below were read from `/var/log/procyon/cyonproxy.log` inside the container.
 
 | Request (loopback port 8623, Host `mcpgw.local...`) | Result | Log lines written |
 |---|---|---|
@@ -152,7 +152,7 @@ What blocks the rest of Phase 2: allowed and denied tool calls, guardrail verdic
 
 ## 8b. LLM cases on the hosted gateway (measured, 2026-11-08 00:52Z)
 
-Owner-approved: the existing Anthropic virtual key held by AI-DEMO2, LLM cases only, one small call each (`max_tokens` 16), sent to the hosted gateway at `/llm/anthropic/v1/messages`. The key was redacted from everything printed. The gateway pod (`agentless-mcpgw`, 11 minutes old, 10 containers) was read with `kubectl logs --all-containers --since=4m` (read-only). Each prompt carried a unique `audit-<hex>` marker.
+Owner-approved: the demo Anthropic virtual key, LLM cases only, one small call each (`max_tokens` 16), sent to the hosted gateway at `/llm/anthropic/v1/messages`. The key was redacted from everything printed. The gateway pod (`agentless-mcpgw`, 11 minutes old, 10 containers) was read with `kubectl logs --all-containers --since=4m` (read-only). Each prompt carried a unique `audit-<hex>` marker.
 
 | Case | Request | Answer | Pod-log lines naming the marker |
 |---|---|---|---|
@@ -168,7 +168,7 @@ Also seen, not caused by this run: `aiguard: blocked mcp response client=audit-t
 
 Still not covered: allowed and denied MCP tool calls and the A2A cases (they need an MCP agent key, which the owner has not supplied), and the Google and OpenAI lanes.
 
-## 8c. A2A on the hosted gateway, through the AI-DEMO2 A2A page (measured, 2026-11-08 01:23 to 01:44Z)
+## 8c. A2A on the hosted gateway, through the the demo stack A2A page (measured, 2026-11-08 01:23 to 01:44Z)
 
 Setup: the page `/privilege-a2a` (access review), signed in as the demo user. The agent client was `main-agent` and the app was `worker-agent`. That is **not** the `workeragentdemo2` application seen in the console, which is a different Remote Agent (frontend path `/a2a`, backend the `workeragentdemo` service, Auth Mode None). The gateway pod was read with `kubectl logs --all-containers` (continuous capture); the `workeragentdemo` worker pod and the `mcp-promptguard` sidecar were read too, the sidecar with timestamps. Attribution to a click is by time. The user supplied no page text for message 3.
 
@@ -196,11 +196,11 @@ Also seen in the same window, from a different client (`audit-test`, not this ru
 
 ## 9. Constraints
 
-Low load on the live gateway. Local Docker only; the hosted SE copy is scaled down and stays that way. Alloy keeps its exact container-name filter. The shared AI-DEMO2 checkout is read-only for us (use a worktree). No secret is printed or stored. Tests run on the Air first, local when it is unreachable (it was, on 2026-11-07). GitHub work uses `curtismu7`.
+Low load on the live gateway. Local Docker only; the hosted SE copy is scaled down and stays that way. Alloy keeps its exact container-name filter. The shared the demo stack checkout is read-only for us (use a worktree). No secret is printed or stored. Tests run on the Air first, local when it is unreachable (it was, on 2026-11-07). GitHub work uses `curtismu7`.
 
 ## 10. Open items
 
 1. What sends the paired `authorization header missing` / `Invalid Authorization token` requests to the agent gateway?
 2. Is the doc claim that model calls reach Elasticsearch current, given the capture found none?
 3. Phase 1b: which pages call the gateway, and which only explain?
-4. Real gateway left running (`ai-demo-ping-mcpgw`) for Phase 2; stop it with `docker rm -f ai-demo-ping-mcpgw` when not needed.
+4. Real gateway left running (`ping-mcpgw`) for Phase 2; stop it when not needed (`docker rm -f <gateway container>`).

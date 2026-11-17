@@ -1,4 +1,4 @@
-# The lab's own Loki: single binary, in-memory ring, filesystem chunks on tmpfs (gone on recreate, like AI-DEMO2's).
+# The lab's own Loki: single binary, in-memory ring, filesystem chunks on tmpfs (gone on recreate).
 # Everything listens on 127.0.0.1 INSIDE the lab's network namespace (the container shares it), so nothing is published.
 # Analytics are off: this stack makes no outbound calls.
 auth_enabled: false

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create (or refresh) the Kibana data view "Demo logs" over demo-logs-*, the indexes the log collector fills from the AI-DEMO2 and lab containers.
+"""Create (or refresh) the Kibana data view "Demo logs" over demo-logs-*, the indexes the log collector fills from the family demo and lab containers.
 Run it yourself in a terminal: the anonymous Kibana user is read-only, so saving a data view needs a user that may write saved objects.
 
   scripts/kibana-demo-logs-view.py                                          type the password of that user (default elastic; hidden)
@@ -11,7 +11,7 @@ import base64, getpass, json, os, subprocess, sys, urllib.error, urllib.request
 
 KIBANA = os.environ.get("KIBANA_URL", "http://localhost:5601").rstrip("/")
 VIEW_ID = "demo-logs"
-VIEW = {"attributes": {"title": "demo-logs-*", "name": "Demo logs (AI-DEMO2 and lab containers)", "timeFieldName": "@timestamp"}}
+VIEW = {"attributes": {"title": "demo-logs-*", "name": "Demo logs (family demo and lab containers)", "timeFieldName": "@timestamp"}}
 
 
 def call(method, path, auth, body=None):
