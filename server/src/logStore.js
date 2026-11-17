@@ -49,7 +49,7 @@ function buildBaseline() {
   // Background chatter: gateway health on a different route, PF server heartbeat.
   for (let i = 0; i < 30; i++) push(i * MIN + 5000, 'pinggateway', 'route-log', 'debug', `route=/health method=GET status=200 dur_ms=1`);
   for (let i = 0; i < 15; i++) push(i * 2 * MIN + 12_000, 'pingfederate', 'server.log', 'info', `INFO  Connection pool to the directory is healthy (active=3, idle=7)`);
-  // Privilege node sensor and MCP gateway: steady background lines (shapes measured on a running AI-DEMO2 stack), no shared id.
+  // Privilege node sensor and MCP gateway: steady background lines (shapes measured on a running Ping demo stack), no shared id.
   for (let i = 0; i < 10; i++) push(i * 3 * MIN + 8000, 'privilege', 'sensor-report', 'info', `level=INFO msg="nodesensor: reported findings" sent=1 accepted=1`);
   for (let i = 0; i < 8; i++) push(i * 4 * MIN + 3000, 'privilege', 'exec-events', 'info', `exec    pid=${4200 + i * 17}  python           host`);
   // The two rejection messages are written together by ONE request (measured 2026-11-08: the invalid-token line follows the
@@ -84,7 +84,7 @@ function buildBaseline() {
   for (let i = 0; i < 20; i++) push(i * 80_000 + 6000, 'pingfederate', 'server-stdout', 'debug', `/opt/out/instance/log/server.log:  DEBUG [org.sourceid.util.log.internal.TrackingIdSupport] The incoming request does not contain a unique identifier. Assigning auto-generated tracking id`);
   for (let i = 0; i < 6; i++) push(i * 5 * MIN + 40_000, 'pingfederate', 'server-stdout', 'info', `/opt/out/instance/log/server.log:  INFO  [com.pingidentity.crypto.jwk.impl.JwkStateRpcImpl] Added new key to JSON Web Key Set`);
   for (let i = 0; i < 12; i++) push(i * 150_000 + 30_000, 'pinggateway', 'router-error', 'error', `[vert.x-eventloop-thread-${1 + (i % 8)}] ERROR o.f.o.handler.router.RouterHandler @default - No handler to dispatch to for request 'https://<host>:<port>/get_model_info'`);
-  // Audit lines now on stdout (measured 2026-11-08 after AI-DEMO2 PR #3437).
+  // Audit lines now on stdout (measured 2026-11-08 after the stack's config change).
   for (let i = 0; i < 4; i++) {
     const tid = hex(rand, 27);
     push(i * 7 * MIN + 20_000, 'pingfederate', 'audit-stdout', 'info', `/opt/out/instance/log/audit.log:  | tid:${tid}| ${hex(rand, 25)}| OAuth| | <ip> | | <client id>| OAuth20| <host id>| AS| inprogress| | | 479`);

@@ -1,6 +1,6 @@
 // Deployment configuration: the Mock/Real toggle (rule 19). Mock is the only fully-offline mode and the default.
 // Real (owner-run) reads logs from ONE Loki you point it at, read-only (GET query_range). That Loki must be on
-// loopback (for example the AI-DEMO2 observability profile publishes it on 127.0.0.1:3100): the lab's netguard
+// loopback (the lab's own `stack` profile publishes one on 127.0.0.1:3100): the lab's netguard
 // refuses every non-loopback socket, so a remote Loki is reported as "not configured" with the reason, never reached.
 import { isLoopbackHost } from './safety.js';
 import { SECURITY_ALERTS_PATH, discoverUrl, rison } from './searches.js';

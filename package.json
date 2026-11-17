@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Observability Lab: follow a log line from PingOne, PingFederate and Ping Gateway to a searchable, alertable store, with a label lab that shows the silent failure. Standalone, simplified version of the AI-DEMO2 monitoring stack.",
+  "description": "Observability Lab: follow a log line from PingOne, PingFederate and Ping Gateway to a searchable, alertable store, with a label lab that shows the silent failure. A small standalone monitoring stack.",
   "license": "MIT",
   "workspaces": [
     "server",

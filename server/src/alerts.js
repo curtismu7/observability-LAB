@@ -1,4 +1,4 @@
-// Mock alert rules over whatever source is active. The ratio-plus-traffic-floor idea comes from AI-DEMO2 monitoring/alerts.yml (its door rule
+// Mock alert rules over whatever source is active. The ratio-plus-traffic-floor idea is the pattern a production Ping monitoring stack uses (its door rule
 // uses a 4xx ratio; this lab applies the idea to 5xx as its own design), plus a lab-own silence rule. Each rule reads entries through `fetch({ query, windowMs })`, so it runs the same over the mock store or Real.
 import { parseQuery } from './logql.js';
 import { SERVICES } from './logStore.js';

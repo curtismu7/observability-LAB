@@ -83,8 +83,8 @@ test('Loki and Alloy make no outbound calls of their own and listen on loopback'
 
 test('Privilege sources: stdout containers are filtered by exact name, the gateway file is read-only, tailed from the end and filtered', () => {
   const alloy = here('stack/alloy.alloy');
-  for (const name of ['lab-proxy-lab-proxy-1', 'procyon-nodesensor', 'ai-demo-mcp-gateway', 'ai-demo-pingfederate', 'ai-demo-ping-gateway', 'ai-demo-llm-proxy', 'ai-demo-authz-server', 'ai-demo-mcp-server', 'ai-demo-mcp-weather', 'ai-demo-hitl-service']) assert.match(alloy, new RegExp(`"\\^/\\?${name}\\$"`), `${name} is matched exactly`);
-  assert.match(alloy, /\(\?:ai-demo-\)\?/, 'service drops the ai-demo- prefix, as AI-DEMO2 does');
+  for (const name of ['lab-proxy-lab-proxy-1', 'procyon-nodesensor', 'ping-shared-mcp-gateway', 'ping-shared-pingfederate', 'ping-shared-ping-gateway', 'demo-llm-proxy', 'demo-authz-server', 'demo-mcp-server', 'demo-mcp-weather', 'demo-hitl-service']) assert.match(alloy, new RegExp(`"\\^/\\?${name}\\$"`), `${name} is matched exactly`);
+  assert.match(alloy, /\(\?:demo-\|ping-shared-\)\?/, 'service drops the family stack prefixes');
   assert.match(alloy, /tail_from_end = true/, 'the gateway file holds days of history; only new lines are shipped');
   assert.match(alloy, /stage\.match[\s\S]*action\s*=\s*"drop"/, 'lines outside the four modelled families are dropped');
   assert.match(alloy, /Error receiving from the stream\|\[\[\]SERVER\[\]\]/, 'the [SERVER] request lines (User-Agent, Remote Addr) are kept');
@@ -99,7 +99,7 @@ test('Privilege sources: stdout containers are filtered by exact name, the gatew
   assert.doesNotMatch(limit, /drop_counter_reason/, 'stage.limit has no drop_counter_reason (only stage.drop does): Alloy refuses the file and the container exits');
   const priv = here('docker-compose.privilege.yml');
   assert.match(priv, /privilege-logs:\/privilege-logs:ro/, 'the gateway log volume is mounted read-only');
-  assert.match(priv, /external: true/, 'the volume belongs to AI-DEMO2; this lab never creates it');
+  assert.match(priv, /external: true/, 'the volume is external; this lab never creates it');
   assert.doesNotMatch(priv, /^\s*ports:/m);
 });
 

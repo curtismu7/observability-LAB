@@ -64,7 +64,7 @@ services:
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
 
-  # Reads the lab-proxy's stdout through the Docker socket, mounted read-only (as AI-DEMO2's collector does):
+  # Reads the lab-proxy's stdout through the Docker socket, mounted read-only (as a production-style collector does):
   # it can list containers and read their logs, nothing else.
   alloy:
     restart: unless-stopped
