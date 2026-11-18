@@ -20,9 +20,9 @@ export function lokiUrlFrom(env = process.env) {
   } catch { return null; }
 }
 
-// Why Real is unavailable, in words the toggle's tooltip can show. null when it is available.
+// Why Real is unavailable (the standalone path is this lab's own Loki and Alloy, profile `stack`), in words the toggle's tooltip can show. null when it is available.
 export function realProblemFrom(env = process.env) {
-  if (!env.OBS_LOKI_URL) return 'Real needs OBS_LOKI_URL (a loopback Loki, e.g. http://127.0.0.1:3100), or the Privilege SIEM settings, in the settings file. Mock keeps working.';
+  if (!env.OBS_LOKI_URL) return 'Real needs a Loki on this machine: start this lab\'s own stack (OBS_LOKI_URL=http://127.0.0.1:3100 docker compose --profile stack up -d) or set OBS_LOKI_URL to your own loopback Loki. The Privilege SIEM is a bring-your-own source. Mock keeps working.';
   return lokiUrlFrom(env) ? null : 'OBS_LOKI_URL must be a plain http(s) URL on loopback (127.0.0.1 or localhost) with no credentials and no path. Mock keeps working.';
 }
 export const realAvailableFrom = (env = process.env) => lokiUrlFrom(env) !== null || siemFrom(env) !== null;
@@ -85,7 +85,7 @@ export function siemFrom(env = process.env) {
 
 // Why the SIEM source is unavailable, in words an operator can act on. null when it is usable.
 export function siemProblemFrom(env = process.env) {
-  if (!env.PRIVILEGE_SIEM_URL) return `Set PRIVILEGE_SIEM_URL to a loopback Elasticsearch (a port-forward: ${esPortForwardFrom(env)}), plus PRIVILEGE_SIEM_READ_APIKEY (a read key limited to the index; the owner creates it).`;
+  if (!env.PRIVILEGE_SIEM_URL) return `Bring your own: this source is not part of the standalone stack. Set PRIVILEGE_SIEM_URL to a loopback Elasticsearch (a port-forward: ${esPortForwardFrom(env)}), plus PRIVILEGE_SIEM_READ_APIKEY (a read key limited to the index; the owner creates it).`;
   if (!plainOrigin(env.PRIVILEGE_SIEM_URL, { loopbackOnly: true })) return 'PRIVILEGE_SIEM_URL must be a plain http(s) URL on loopback (127.0.0.1 or localhost) with no credentials and no path.';
   if (!INDEX.test(env.PRIVILEGE_SIEM_INDEX || SIEM_DEFAULTS.index)) return 'PRIVILEGE_SIEM_INDEX is not a valid index name.';
   if (!FIELD.test(env.PRIVILEGE_SIEM_TIME_FIELD || SIEM_DEFAULTS.timeField)) return 'PRIVILEGE_SIEM_TIME_FIELD is not a valid field name.';
