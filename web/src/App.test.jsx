@@ -99,6 +99,7 @@ describe("Privilege SIEM: Kibana link and the look-back window", () => {
     expect(within(screen.getByTestId("product-pingfederate")).queryByTestId("kibana-link")).toBeNull();
     const siem = screen.getByTestId("product-psiem");
     expect(within(siem).getByTestId("siem-setup")).toHaveTextContent("Real is not set up for this source: Set PRIVILEGE_SIEM_URL");
+    expect(within(siem).getByTestId("siem-setup")).toHaveTextContent("bring-your-own source");
   });
 
   it("the Products tab has a Ping products dropdown: Ping products apart from other services, one card per pick, all cards on All", async () => {

@@ -26,7 +26,7 @@ function KibanaLink({ siem }) {
   return (
     <p className="kibana" data-testid="kibana-link">
       <a href={siem.kibana.deepLink} target="_blank" rel="noopener noreferrer">Open in Kibana (Privilege logs)</a>{" "}
-      <span className="muted">Needs the tunnel: <code>{siem.kibana.portForward}</code></span>
+      <span className="muted">Bring your own Kibana (an address to open; the lab never calls it). Needs the tunnel: <code>{siem.kibana.portForward}</code></span>
       {!siem.kibana.settingValid && <span className="muted"> PRIVILEGE_KIBANA_URL is not usable, so the default is shown.</span>}
     </p>
   );
@@ -38,7 +38,7 @@ function SiemSetup({ siem }) {
     <p className="muted" data-testid="siem-setup">
       {siem.configured
         ? <>Real reads <code>{siem.index}</code> read-only. Ask for <code>{`{service="${siem.service}"}`}</code>.</>
-        : <>Real is not set up for this source: {visible(siem.problem)} Mock shows the recorded sample.</>}
+        : <>Real is not set up for this source: {visible(siem.problem)} Mock shows the recorded sample. This is a bring-your-own source: the lab's own stack does not include it.</>}
     </p>
   );
 }
