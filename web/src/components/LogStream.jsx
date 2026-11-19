@@ -82,7 +82,7 @@ export default function LogStream({ story, info, dataSignal, requestedId, onSele
   return (
     <div className="logs">
       <section className="panel" aria-labelledby="scen-h">
-        <h2 id="scen-h">Try a scenario</h2>
+        <h2 id="scen-h"><span className="step-num" aria-hidden="true">1</span>Try a scenario</h2>
         <div className="seg" role="group" aria-label="Scenarios">
           {story.scenarios.map((sc) => {
             const blocked = real && !!sc.action;
@@ -96,7 +96,7 @@ export default function LogStream({ story, info, dataSignal, requestedId, onSele
       </section>
 
       <section className="panel" aria-labelledby="q-h">
-        <h2 id="q-h">Query</h2>
+        <h2 id="q-h"><span className="step-num" aria-hidden="true">2</span>Query</h2>
         <form onSubmit={submit} className="qform">
           <label htmlFor="q" className="sr-only">LogQL-lite query</label>
           <input id="q" className="qinput" type="text" value={draft} onChange={(e) => setDraft(e.target.value)} spellCheck={false} autoComplete="off" maxLength={500} data-testid="query" />

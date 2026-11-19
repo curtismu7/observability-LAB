@@ -92,6 +92,9 @@ details { margin: 6px 0; } summary { cursor: pointer; font-size: var(--font-size
 .app--presenter .json, .app--presenter .tbl { font-size: var(--font-size-base); }
 /* Observability Lab additions */
 .logs { display: grid; gap: 12px; }
+.step-num { display: inline-grid; place-items: center; min-width: 22px; height: 22px; border-radius: 50%;
+  background: var(--accent-gradient); color: var(--on-accent); font: 700 var(--font-size-2xs) var(--font-mono);
+  margin-right: 8px; vertical-align: 2px; }
 .cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); align-items: start; margin: 8px 0; }
 .qform { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 8px; }
 .qform .field { display: flex; flex-direction: column; gap: 2px; margin: 0; flex: 1 1 15rem; min-width: 0; }
