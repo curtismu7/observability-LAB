@@ -44,3 +44,16 @@ test('port-forward hints: placeholders by default, valid OBS_KUBE_* values appea
   }
   assert.equal(kubeFrom({ OBS_KUBE_CONTEXT: 'a'.repeat(63) }).context, 'a'.repeat(63));
 });
+
+test('standalone Real: the unconfigured reason leads with the lab\'s own stack; the SIEM is bring-your-own with no default address', async () => {
+  const { siemFrom, siemProblemFrom, realAvailableFrom: avail } = await import('../src/config.js');
+  assert.match(realProblemFrom({}), /--profile stack/);
+  assert.match(realProblemFrom({}), /OBS_LOKI_URL=http:\/\/127\.0\.0\.1:3100/);
+  assert.match(realProblemFrom({}), /bring-your-own/);
+  assert.equal(avail({}), false, 'nothing configured: Real stays unavailable (disabled with the reason)');
+  assert.equal(siemFrom({}), null, 'no SIEM address or key by default');
+  assert.match(siemProblemFrom({}), /^Bring your own/);
+  // The loopback Loki alone makes Real available, and the SIEM stays off.
+  const env = { OBS_LOKI_URL: 'http://127.0.0.1:3100' };
+  assert.equal(avail(env), true); assert.equal(siemFrom(env), null);
+});

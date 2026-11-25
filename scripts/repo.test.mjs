@@ -45,3 +45,19 @@ test('no shipped text names a real customer, company or tenant', () => {
   walk(root);
   assert.deepEqual(hits, []);
 });
+
+test('Real is documented standalone-first: own Loki and Alloy stack is the default, every other source is bring-your-own, and no other project\'s address is a default', () => {
+  const readme = read('README.md'); const env = read('.env.example');
+  assert.match(readme, /standalone path is this lab's own Loki and Alloy \(compose profile `stack`\)/);
+  assert.match(readme, /\*\*bring your own\*\*/);
+  assert.match(readme, /Privilege SIEM[^.]*bring your own/i);
+  assert.match(env, /BRING YOUR OWN/);
+  assert.match(env, /--profile stack up -d/);
+  // The SIEM settings ship commented out: no default URL or key.
+  for (const k of ['PRIVILEGE_SIEM_URL', 'PRIVILEGE_SIEM_READ_APIKEY']) assert.ok(!new RegExp(`^${k}=`, 'm').test(env), `${k} must not be set in the example`);
+  assert.match(read('docs/shelf-entry.json'), /bring-your-own/);
+  // No other project's ports or name in shipped code, config, compose or docs (the vendored shared CSS and the 2026-11-08 measurement record are excluded).
+  const bad = /\b(3036|9031)\b|localhost:8623|AI-DEMO2|ai-demo-(?!standalone)/i;
+  const files = ['README.md', '.env.example', 'CLAUDE.md', 'docker-compose.yml', 'docker-compose.privilege.yml', 'stack/alloy.alloy', 'stack/loki.yaml', 'docs/shelf-entry.json', 'docs/safety.md', 'docs/HANDOFF.md', 'docs/content-pack.schema.json', 'content-pack.json', 'server/src/config.js', 'server/src/logData.js', 'server/src/logStore.js', 'server/src/siemClient.js', 'web/src/components/Products.jsx'];
+  assert.deepEqual(files.filter((f) => bad.test(read(f))), []);
+});
