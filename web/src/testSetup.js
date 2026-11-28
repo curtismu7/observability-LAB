@@ -22,3 +22,7 @@ if (typeof globalThis.localStorage?.clear !== "function") {
 Element.prototype.scrollTo = Element.prototype.scrollTo || function scrollTo() {};
 Element.prototype.scrollIntoView = Element.prototype.scrollIntoView || function scrollIntoView() {};
 window.scrollTo = () => {};
+
+// The Real-or-mock modal remembers a dismissal in sessionStorage; start every test with it open.
+import { afterEach } from "vitest";
+afterEach(() => { try { sessionStorage.clear(); } catch { /* storage unavailable */ } });
