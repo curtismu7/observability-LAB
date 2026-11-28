@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import App, { BANNER_UNKNOWN } from "./App";
+import App, { MODE_LINES } from "./App";
 import { labelOffsets } from "./components/PatternDiagram";
 
 const STORY = {
@@ -299,9 +299,13 @@ describe("log lines open on click", () => {
 });
 
 describe("shell and rule 19 toggle", () => {
-  it("shows the banner first, the mode, and sends X-Workspace on API calls", async () => {
+  it("opens on a MOCK modal with the lab's line, shows the mode, and sends X-Workspace on API calls", async () => {
     await ready();
-    expect(screen.getByTestId("banner")).toHaveTextContent(/^SIMULATED/);
+    expect(screen.getByTestId("mode-modal").dataset.mode).toBe("mock");
+    expect(screen.getByTestId("mode-modal")).toHaveTextContent(/MOCK/);
+    expect(screen.getByTestId("mode-modal")).toHaveTextContent(/Everything is simulated: seeded, synthetic log events/);
+    expect(screen.getByTestId("mode-modal")).toHaveTextContent(/Nothing here reads a real product log or calls a real tenant/);
+    expect(screen.queryByTestId("banner")).toBeNull();
     expect(screen.getByTestId("mode-select")).toHaveValue("mock");
     expect(calls.find((c) => c.url.startsWith("/api/logs")).opts.headers["x-workspace"]).toMatch(/^[a-z0-9-]{1,40}$/);
   });
@@ -312,12 +316,38 @@ describe("shell and rule 19 toggle", () => {
     const before = calls.filter((c) => c.url.startsWith("/api/logs")).length;
     await userEvent.selectOptions(modeSelect, "real");
     await waitFor(() => expect(screen.getByTestId("mode-select")).toHaveValue("real"));
-    expect(screen.getByTestId("banner")).toHaveTextContent(/^REAL/);
+    await waitFor(() => expect(screen.getByTestId("mode-modal").dataset.mode).toBe("real"));
+    expect(screen.getByTestId("mode-modal")).toHaveTextContent(/REAL/);
+    expect(screen.getByTestId("mode-modal")).toHaveTextContent(/loopback Loki you configured/);
+    expect(screen.getByTestId("mode-modal")).toHaveTextContent(/nothing is written to either/);
     await waitFor(() => expect(calls.filter((c) => c.url.startsWith("/api/logs")).length).toBeGreaterThan(before));
     await waitFor(() => expect(screen.getByTestId("count")).toHaveTextContent("REAL Loki"));
     await userEvent.selectOptions(screen.getByTestId("mode-select"), "mock");
     await waitFor(() => expect(screen.getByTestId("mode-select")).toHaveValue("mock"));
-    expect(screen.getByTestId("banner")).toHaveTextContent(/^SIMULATED/);
+    await waitFor(() => expect(screen.getByTestId("mode-modal").dataset.mode).toBe("mock"));
+  });
+  it("Got it closes the modal and it does not return on a remount in the same session; Escape closes it too", async () => {
+    const { unmount } = render(<App />);
+    await userEvent.click(await screen.findByTestId("mode-modal-ok"));
+    expect(screen.queryByTestId("mode-modal")).toBeNull();
+    unmount();
+    await ready();
+    expect(screen.queryByTestId("mode-modal")).toBeNull();
+    sessionStorage.clear();
+    cleanup();
+    render(<App />);
+    await screen.findByTestId("mode-modal");
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByTestId("mode-modal")).toBeNull();
+  });
+  it("a Real lab reads MOCK until /api/info answers, then REAL", async () => {
+    let release;
+    const held = new Promise((r) => { release = r; });
+    override["/api/info"] = async () => { await held; return { ok: true, status: 200, json: async () => ({ mode: "real", source: "real", realAvailable: true, realHint: null }) }; };
+    render(<App />);
+    expect((await screen.findByTestId("mode-modal")).dataset.mode).toBe("mock");
+    release();
+    await waitFor(() => expect(screen.getByTestId("mode-modal").dataset.mode).toBe("real"));
   });
   it("Real is disabled with the how-to reason when not configured", async () => {
     state.realAvailable = false;
@@ -445,20 +475,20 @@ describe("products and pipeline", () => {
   });
 });
 
-describe("talk track, presenter mode, banner", () => {
-  it("presenter mode keeps the banner and shows the say-text; Esc leaves", async () => {
+describe("talk track, presenter mode, mode badge", () => {
+  it("presenter mode keeps the header badge and shows the say-text; Esc leaves", async () => {
     await ready();
     await userEvent.click(screen.getByRole("link", { name: "Talk track" }));
     expect(screen.getByTestId("talk-track-list")).toHaveTextContent("Everything is simulated.");
     await userEvent.click(screen.getByRole("link", { name: "Logs" }));
     await userEvent.keyboard("p");
     expect(await screen.findByTestId("presenter-say")).toHaveTextContent("Everything is simulated.");
-    expect(screen.getByTestId("banner")).toBeVisible();
+    expect(screen.getByTestId("mode-badge")).toBeVisible();
     expect(document.querySelector(".app--presenter")).not.toBeNull();
     await userEvent.keyboard("{Escape}");
     expect(document.querySelector(".app--presenter")).toBeNull();
   });
-  it("shell bar first (brand, Mock badge, current pill, TopMenu), then main with the banner as its first child", async () => {
+  it("shell bar first (brand, Mock badge, current pill, TopMenu), then main with no simulation paragraph in it", async () => {
     await ready();
     const bar = document.querySelector("header.shell-bar");
     expect(document.querySelector(".app").firstElementChild).toBe(bar);
@@ -470,21 +500,24 @@ describe("talk track, presenter mode, banner", () => {
     expect(screen.getByRole("link", { name: "Alerts" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Logs" })).not.toHaveAttribute("aria-current");
     expect(bar.nextElementSibling.tagName).toBe("MAIN");
-    expect(document.querySelector("main").firstElementChild).toBe(screen.getByTestId("banner"));
+    expect(document.querySelector("main > p.banner")).toBeNull();
+    expect(document.querySelector("main").firstElementChild).toBe(screen.getByTestId("status"));
   });
-  it("the banner is visible on every tab", async () => {
+  it("no simulation paragraph on any tab, and the header badge still says Mock", async () => {
     await ready();
     for (const name of ["Products", "Pipeline", "Label lab", "Alerts", "Talk track"]) {
       await userEvent.click(screen.getByRole("link", { name }));
-      expect(screen.getByTestId("banner")).toBeVisible();
+      expect(screen.queryByTestId("banner")).toBeNull();
+      expect(document.querySelector("main > p.banner")).toBeNull();
+      expect(screen.getByTestId("mode-badge")).toHaveTextContent("Mock");
     }
   });
-  it("when both calls fail, the banner says SIMULATED and stays visible", async () => {
+  it("when both calls fail, the modal still says MOCK with the simulated line", async () => {
     const dead = async () => ({ ok: false, status: 500, json: async () => ({}) });
     override["/api/info"] = dead; override["/api/scenarios"] = dead;
     render(<App />);
-    await waitFor(() => expect(screen.getByTestId("banner")).toHaveTextContent(BANNER_UNKNOWN));
-    expect(screen.getByTestId("banner")).toBeVisible();
+    await waitFor(() => expect(screen.getByTestId("mode-modal")).toHaveTextContent(MODE_LINES.mock));
+    expect(screen.getByTestId("mode-modal").dataset.mode).toBe("mock");
   });
 });
 
@@ -515,12 +548,12 @@ describe("Searches tab", () => {
     return { user, tab: await screen.findByTestId("searches") };
   };
 
-  it("lists every group, the PingOne pending label, and the Mock note; the banner stays first", async () => {
+  it("lists every group, the PingOne pending label, and the Mock note", async () => {
     const { tab } = await open();
     for (const g of ["privilege", "all", "pingfederate", "pinggateway", "pingone"]) expect(within(tab).getByTestId(`search-group-${g}`)).toBeInTheDocument();
     expect(within(within(tab).getByTestId("search-group-pingone")).getByTestId("pending")).toHaveTextContent("data appears once PingOne forwarding is live");
     expect(within(tab).getByTestId("searches-mock-note")).toHaveTextContent("Mock: links point at your Kibana");
-    expect(screen.getByTestId("banner")).toBeInTheDocument();
+    expect(screen.getByTestId("mode-badge")).toBeInTheDocument();
     expect(calls.some((c) => String(c.url).includes("kibana"))).toBe(false);
   });
 

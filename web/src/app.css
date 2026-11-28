@@ -23,7 +23,7 @@ code { font-family: var(--font-mono); font-size: var(--font-size-2xs); }
 .shell-nav a.tab-featured::before { content: "★" / ""; margin-right: 6px; }
 .shell-bar .shell-right { margin-left: auto; } /* TopMenu renders .top-menu.shell-right; its own layout stays */
 @media (max-width: 600px) { .shell-bar { gap: 10px; padding: 10px 16px; } .shell-nav { order: 3; flex-basis: 100%; flex-wrap: wrap; } }
-/* Page frame (section 3): one centred 1100px column; the simulation banner is its first child. */
+/* Page frame (section 3): one centred 1100px column. */
 .page { max-width: 2200px; margin: 0 auto; padding: 4px 0 32px; }
 .page-head { margin: 12px 0; }
 .intro { margin: 0; max-width: 70ch; color: var(--th-text-muted); font-size: var(--font-size-sm); line-height: 1.45; }
@@ -39,7 +39,7 @@ button:focus-visible { outline: 2px solid var(--th-status-info); outline-offset:
 .track__now p { margin: 0; font-size: var(--font-size-base); line-height: 1.5; }
 .keys { color: var(--th-text-muted); font-size: var(--font-size-2xs); }
 .app-error { padding: 16px; color: var(--th-accent); }
-/* Presenter mode: less chrome, bigger talk track. The simulation banner stays. */
+/* Presenter mode: less chrome, bigger talk track. The header badge stays. */
 .app--presenter .track__now h2, .track__now h3 { font-size: var(--font-size-xl); }
 .app--presenter .track__now p { font-size: var(--font-size-lg); line-height: 1.55; }
 .views { display: flex; gap: 8px; margin: 8px 0; } .views button[aria-pressed="true"] { border-color: var(--th-accent); font-weight: 700; }

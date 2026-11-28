@@ -9,6 +9,7 @@ import ShelfLink from "./components/ShelfLink";
 import VerifyMark from "./components/VerifyMark.jsx";
 import TopMenu, { applyFontSize } from "./top-menu/TopMenu";
 import Searches from "./components/Searches";
+import ModeModal from "./mode-modal/ModeModal.jsx";
 import { getJson, resetWorkspace, setMode } from "./api";
 
 export const TABS = [
@@ -20,8 +21,11 @@ export const TABS = [
   { id: "alerts", label: "Alerts" },
   { id: "talk", label: "Talk track" },
 ];
-// The banner is never blank: until /api/scenarios answers (or if it fails) it says the safe thing.
-export const BANNER_UNKNOWN = "SIMULATED: seeded, synthetic log events and mock alert rules. Nothing here reads a real product log or calls a real tenant.";
+// The Real-or-mock modal's lines (the old banner's facts). Until /api/info answers, or if it fails, the mode reads MOCK, the safe thing.
+export const MODE_LINES = {
+  mock: "Everything is simulated: seeded, synthetic log events, a mock log store and mock alert rules. Nothing here reads a real product log or calls a real tenant.",
+  real: 'Read-only: log lines come from the loopback Loki you configured (and, for service="privilege-siem", the Privilege SIEM Elasticsearch). Products, alert thresholds and the label lab still follow this lab\'s rules, and nothing is written to either.',
+};
 const THEMES = ["auto", "light", "dark"];
 
 const hashParts = () => {
@@ -93,7 +97,6 @@ export default function App() {
   };
 
   const real = info?.mode === "real";
-  const banner = story ? (real ? story.realBanner : story.banner) : BANNER_UNKNOWN;
   return (
     <div className={`app${presenter ? " app--presenter" : ""}`}>
       <header className="shell-bar">
@@ -126,7 +129,6 @@ export default function App() {
         </TopMenu>
       </header>
       <main className="page">
-        <p className="banner" role="note" data-testid="banner">{banner}</p>
         {error && <p className="app-error" role="alert">Could not load the lab ({error}). Is the server running?</p>}
         <p className="sr-only" role="status" aria-live="polite" data-testid="status">{resetMsg}</p>
         {!presenter && story && <div className="page-head"><p className="intro">{story.intro}</p></div>}
@@ -150,6 +152,7 @@ export default function App() {
           )}
         </div>
       </main>
+      <ModeModal mode={real ? "real" : "mock"} lines={MODE_LINES} storageKey="obs-mode" />
     </div>
   );
 }
